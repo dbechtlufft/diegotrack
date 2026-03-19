@@ -429,6 +429,16 @@ async function notionCreate(dbId, properties) {
   return await r.json();
 }
 
+async function notionDelete(pageId) {
+  const r = await fetch(`${NOTION_API}/pages/${pageId}`, {
+    method: 'PATCH',
+    headers: notionHeaders(),
+    body: JSON.stringify({ archived: true }),
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.status); }
+  return await r.json();
+}
+
 // ──────────────────────────────────────────
 //  Property builders
 // ──────────────────────────────────────────
@@ -616,13 +626,40 @@ function renderWorkForm() {
 function makeSetRow(ei, si, isTop) {
   const lbl = isTop ? '★' : (si + 1);
   const col = isTop ? 'var(--accent)' : '';
-  return `<div class="set-row" id="sr${ei}_${si}">
-    <div class="set-num" style="color:${col}">${lbl}</div>
+  return `<div class="set-row" id="sr${ei}_${si}" data-topset="${isTop ? '1' : '0'}">
+    <div class="set-num" style="color:${col};cursor:pointer;user-select:none" title="Definir como top set" onclick="setTopSet(${ei},this.closest('.set-row'))">${lbl}</div>
     <input class="set-input" type="number" step="0.5" placeholder="kg" id="kg${ei}_${si}">
     <input class="set-input" type="number" placeholder="reps" id="rp${ei}_${si}">
     <input class="set-input" type="number" placeholder="0-3" id="rr${ei}_${si}">
     <button class="set-del" onclick="this.closest('.set-row').remove()">×</button>
   </div>`;
+}
+
+function setTopSet(ei, clickedRow) {
+  const container = document.getElementById('sets' + ei);
+  const rows = container.querySelectorAll('.set-row');
+  let rowIndex = 0;
+  rows.forEach((row, i) => {
+    const isTop = row === clickedRow;
+    row.dataset.topset = isTop ? '1' : '0';
+    const numEl = row.querySelector('.set-num');
+    if (isTop) {
+      numEl.textContent = '★';
+      numEl.style.color = 'var(--accent)';
+    } else {
+      rowIndex++;
+      numEl.textContent = rowIndex;
+      numEl.style.color = '';
+    }
+  });
+  // Fix numbering for rows before the top set
+  let beforeCount = 0;
+  rows.forEach(row => {
+    if (row.dataset.topset !== '1') {
+      beforeCount++;
+      row.querySelector('.set-num').textContent = beforeCount;
+    }
+  });
 }
 
 function addSet(ei) {
@@ -783,11 +820,31 @@ function renderErgoHist() {
   const el = document.getElementById('ergoHist');
   if (!ergoLog.length) { el.innerHTML = '<div class="empty">Nenhum registro ainda.</div>'; return; }
   el.innerHTML = ergoLog.map(e => `
-    <div class="ergo-entry">
-      <div class="ergo-comp">${e.compound}</div>
-      <div class="ergo-dose">${e.dose}mg — ${e.freq}</div>
-      <div class="ergo-meta">${e.date ? new Date(e.date+'T12:00:00').toLocaleDateString('pt-BR') : ''}${e.obs ? ' · '+e.obs : ''}</div>
+    <div class="ergo-entry" id="ergo-${e.id}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="ergo-comp">${e.compound}</div>
+          <div class="ergo-dose">${e.dose}mg — ${e.freq}</div>
+          <div class="ergo-meta">${e.date ? new Date(e.date+'T12:00:00').toLocaleDateString('pt-BR') : ''}${e.obs ? ' · '+e.obs : ''}</div>
+        </div>
+        <button onclick="deleteErgo('${e.id}')" style="background:none;border:none;color:var(--muted2);font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;flex-shrink:0" title="Excluir">🗑</button>
+      </div>
     </div>`).join('');
+}
+
+async function deleteErgo(pageId) {
+  if (!confirm('Excluir este registro?')) return;
+  const el = document.getElementById('ergo-' + pageId);
+  if (el) el.style.opacity = '0.4';
+  try {
+    await notionDelete(pageId);
+    ergoLog = ergoLog.filter(e => e.id !== pageId);
+    renderErgoHist();
+    toast('Registro excluído ✓');
+  } catch(e) {
+    if (el) el.style.opacity = '1';
+    toast('Erro ao excluir: ' + e.message, true);
+  }
 }
 
 // ══════════════════════════════════════════
