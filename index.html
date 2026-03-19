@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DiegoTrack</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080809;
+  --s1: #0f0f12;
+  --s2: #161619;
+  --s3: #1e1e23;
+  --border: #27272e;
+  --border2: #32323c;
+  --accent: #c8ff00;
+  --accent-dim: rgba(200,255,0,.12);
+  --orange: #ff7043;
+  --blue: #40c4ff;
+  --text: #eeeef3;
+  --muted: #64646e;
+  --muted2: #44444e;
+  --success: #69f0ae;
+  --danger: #ff5252;
+  --r: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  max-width: 430px;
+  margin: 0 auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ── SETUP ── */
+#setup {
+  position: fixed; inset: 0; z-index: 999;
+  background: var(--bg);
+  overflow-y: auto;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 48px 20px 80px;
+}
+.setup-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 52px; letter-spacing: 5px;
+  color: var(--accent); margin-bottom: 4px;
+}
+.setup-logo em { color: var(--text); font-style: normal; }
+.setup-tagline { font-size: 12px; color: var(--muted); margin-bottom: 36px; letter-spacing: .5px; }
+.setup-card {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 18px; width: 100%; margin-bottom: 10px;
+}
+.sc-step { font-family: 'Bebas Neue', sans-serif; font-size: 11px; color: var(--accent); letter-spacing: 1.5px; margin-bottom: 4px; }
+.sc-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.sc-desc { font-size: 12px; color: var(--muted); line-height: 1.75; }
+.sc-desc b { color: var(--text); }
+.sc-desc a { color: var(--blue); }
+.sc-desc code { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 11px; background: var(--s3); padding: 1px 5px; border-radius: 3px; }
+.sc-input {
+  background: var(--s3); border: 1px solid var(--border2);
+  border-radius: 8px; color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  padding: 11px 13px; width: 100%; margin-top: 10px;
+  transition: border-color .2s;
+}
+.sc-input:focus { outline: none; border-color: var(--accent); }
+.btn-enter {
+  background: var(--accent); color: #000;
+  border: none; border-radius: var(--r);
+  padding: 15px; font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px; letter-spacing: 2.5px;
+  cursor: pointer; width: 100%; margin-top: 12px;
+  transition: opacity .2s;
+}
+.btn-enter:active { opacity: .8; }
+.btn-enter:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ── MAIN LAYOUT ── */
+#app { display: none; padding-bottom: 72px; min-height: 100vh; }
+
+/* BOTTOM NAV */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 430px;
+  background: var(--s1); border-top: 1px solid var(--border);
+  display: flex; z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.bn-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  gap: 3px; padding: 10px 6px;
+  background: none; border: none; color: var(--muted);
+  font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 600;
+  letter-spacing: .5px; text-transform: uppercase; cursor: pointer;
+  transition: color .2s;
+}
+.bn-btn .icon { font-size: 20px; line-height: 1; }
+.bn-btn.active { color: var(--accent); }
+
+/* HEADER */
+.top-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 18px 12px;
+  position: sticky; top: 0; z-index: 50;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.top-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px; letter-spacing: 2px; color: var(--accent);
+}
+.top-logo em { color: var(--text); font-style: normal; }
+.sync-pill {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px;
+  background: var(--s2); border: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  color: var(--muted); cursor: pointer;
+}
+.sync-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
+.sync-dot.ok { background: var(--success); }
+.sync-dot.busy { background: var(--accent); animation: blink 1s infinite; }
+.sync-dot.err { background: var(--danger); }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:.2} }
+
+/* PAGES */
+.page { display: none; padding: 14px 16px; }
+.page.active { display: block; }
+
+.page-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 26px;
+  letter-spacing: 2px; color: var(--accent); margin-bottom: 2px;
+}
+.page-sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+
+/* CARDS */
+.card {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px; margin-bottom: 10px;
+  position: relative; overflow: hidden;
+}
+.card-accent::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+}
+.card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.card-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 1px;
+}
+.chip {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600;
+  padding: 3px 8px; border-radius: 4px;
+}
+.chip-green { background: rgba(105,240,174,.12); color: var(--success); border: 1px solid rgba(105,240,174,.2); }
+.chip-orange { background: rgba(255,112,67,.12); color: var(--orange); border: 1px solid rgba(255,112,67,.2); }
+.chip-blue { background: rgba(64,196,255,.12); color: var(--blue); border: 1px solid rgba(64,196,255,.2); }
+
+/* ALERT BADGE */
+.alert-badge {
+  background: var(--accent-dim); border: 1px solid rgba(200,255,0,.25);
+  border-radius: var(--r); padding: 12px 14px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.ab-icon { font-size: 18px; flex-shrink: 0; }
+.ab-title { font-size: 11px; color: var(--accent); font-weight: 600; }
+.ab-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* SESSION GRID */
+.session-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 14px; }
+.sess-btn {
+  background: var(--s2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px 6px; color: var(--muted);
+  font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1px;
+  cursor: pointer; transition: all .15s; text-align: center;
+}
+.sess-btn small {
+  font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 600;
+  display: block; margin-top: 2px; text-transform: uppercase; letter-spacing: .5px;
+}
+.sess-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.sess-btn.done { border-color: var(--success); color: var(--success); }
+
+/* EXERCISE */
+.ex-item {
+  background: var(--s2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; margin-bottom: 8px;
+}
+.ex-name { font-size: 12px; font-weight: 600; margin-bottom: 10px; line-height: 1.35; }
+.set-labels {
+  display: grid; grid-template-columns: 22px 1fr 1fr 1fr 28px;
+  gap: 5px; margin-bottom: 4px;
+}
+.set-label {
+  font-size: 8px; color: var(--muted); text-align: center;
+  font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+}
+.set-row {
+  display: grid; grid-template-columns: 22px 1fr 1fr 1fr 28px;
+  gap: 5px; align-items: center; margin-bottom: 5px;
+}
+.set-num {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  color: var(--muted); text-align: center; font-weight: 600;
+}
+.set-input {
+  background: var(--s3); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: 14px;
+  padding: 8px 4px; text-align: center; width: 100%;
+  -webkit-appearance: none; transition: border-color .15s;
+}
+.set-input:focus { outline: none; border-color: var(--accent); }
+.set-input::placeholder { color: var(--muted2); font-size: 9px; }
+.set-del { background: none; border: none; color: var(--muted2); font-size: 18px; cursor: pointer; padding: 2px; line-height: 1; }
+.add-set-btn {
+  background: none; border: 1px dashed var(--border2); border-radius: 6px;
+  color: var(--muted); font-size: 11px; padding: 6px;
+  cursor: pointer; width: 100%; margin-top: 3px; transition: all .15s;
+}
+.add-set-btn:active { background: var(--s3); }
+
+/* SAVE BTN */
+.btn-save {
+  background: var(--accent); color: #000; border: none; border-radius: var(--r);
+  padding: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 17px;
+  letter-spacing: 2px; cursor: pointer; width: 100%; margin-top: 6px;
+  transition: opacity .2s;
+}
+.btn-save:active { opacity: .8; }
+.btn-save:disabled { opacity: .4; cursor: not-allowed; }
+
+/* DASH */
+.kpi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.kpi {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px;
+}
+.kpi-val { font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--accent); line-height: 1; }
+.kpi-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
+.pr-row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 7px;
+}
+.pr-name { font-size: 11px; font-weight: 600; flex: 1; padding-right: 8px; line-height: 1.3; }
+.pr-val { font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: var(--accent); white-space: nowrap; }
+.pr-unit { font-family: 'DM Sans', sans-serif; font-size: 10px; color: var(--muted); }
+.hist-entry {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 11px; margin-bottom: 7px;
+}
+.hist-date { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent); margin-bottom: 2px; }
+.hist-sess { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+.hist-ex { font-size: 10px; color: var(--muted); margin-top: 5px; margin-bottom: 1px; }
+.hist-sets { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text); }
+
+/* DIET */
+.macro-grid {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 6px;
+  padding: 12px; background: var(--s2); border-radius: var(--r);
+  border: 1px solid var(--border); margin-bottom: 12px;
+}
+.m-item { text-align: center; }
+.m-val { font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: var(--accent); line-height: 1; }
+.m-label { font-size: 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+.meal-wrap { background: var(--s1); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 8px; overflow: hidden; }
+.meal-hd {
+  padding: 11px 13px; background: var(--s2); display: flex;
+  justify-content: space-between; align-items: center; cursor: pointer;
+}
+.meal-name { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1px; }
+.meal-kcal { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent); }
+.meal-bd { padding: 11px 13px; display: none; }
+.meal-bd.open { display: block; }
+.food-line {
+  display: flex; justify-content: space-between; padding: 5px 0;
+  border-bottom: 1px solid var(--border); font-size: 11px;
+}
+.food-line:last-child { border-bottom: none; }
+.food-nm { flex: 1; color: var(--text); padding-right: 8px; }
+.food-qt { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 10px; font-weight: 600; white-space: nowrap; }
+.meal-obs { margin-top: 8px; padding: 8px; background: var(--s3); border-radius: 6px; font-size: 11px; color: var(--orange); line-height: 1.5; }
+.chev { font-size: 10px; color: var(--muted); transition: transform .2s; }
+.chev.open { transform: rotate(180deg); }
+
+/* ERGO */
+.ergo-form {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px; margin-bottom: 12px;
+}
+.fl { margin-bottom: 11px; }
+.fl-label { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 5px; display: block; }
+.fl-input, .fl-select, .fl-textarea {
+  background: var(--s2); border: 1px solid var(--border2);
+  border-radius: 8px; color: var(--text);
+  font-family: 'DM Sans', sans-serif; font-size: 14px;
+  padding: 10px 12px; width: 100%;
+}
+.fl-input:focus, .fl-select:focus, .fl-textarea:focus { outline: none; border-color: var(--accent); }
+.fl-select { appearance: none; cursor: pointer; }
+.fl-textarea { resize: none; height: 70px; }
+.fl-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ergo-entry {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 11px; margin-bottom: 7px;
+}
+.ergo-comp { font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 1px; color: var(--orange); }
+.ergo-dose { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text); margin: 3px 0; }
+.ergo-meta { font-size: 10px; color: var(--muted); }
+
+/* PLANO (PDF) */
+.drop-zone {
+  border: 2px dashed var(--border2); border-radius: 14px;
+  padding: 32px 20px; text-align: center; cursor: pointer;
+  transition: all .2s; position: relative; margin-bottom: 12px;
+}
+.drop-zone.over { border-color: var(--accent); background: var(--accent-dim); }
+.drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.dz-icon { font-size: 34px; margin-bottom: 8px; }
+.dz-title { font-family: 'Bebas Neue', sans-serif; font-size: 19px; letter-spacing: 1px; margin-bottom: 4px; }
+.dz-sub { font-size: 12px; color: var(--muted); }
+.file-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--s2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 12px; margin-bottom: 7px;
+}
+.fc-name { font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 2px; }
+.prog-box {
+  background: var(--s2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px; margin-bottom: 12px;
+}
+.prog-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.prog-track { background: var(--s3); border-radius: 4px; height: 4px; overflow: hidden; margin-bottom: 6px; }
+.prog-fill { background: var(--accent); height: 100%; border-radius: 4px; transition: width .4s ease; }
+.prog-msg { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+.preview-box {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px; margin-bottom: 10px;
+}
+.prev-title { font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 1px; margin-bottom: 10px; }
+.prev-item { font-size: 11px; color: var(--muted); padding: 5px 0; border-bottom: 1px solid var(--border); }
+.prev-item:last-child { border-bottom: none; }
+.prev-item b { color: var(--text); }
+.btn-confirm { background: var(--success); color: #000; border: none; border-radius: var(--r); padding: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 2px; cursor: pointer; width: 100%; margin-top: 4px; transition: opacity .2s; }
+.btn-confirm:active { opacity: .8; }
+.btn-confirm:disabled { opacity: .4; cursor: not-allowed; }
+
+/* LOADING OVERLAY */
+.overlay {
+  position: fixed; inset: 0; background: rgba(8,8,9,.92);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 800; gap: 14px; font-size: 12px; color: var(--muted);
+}
+.spinner {
+  width: 28px; height: 28px;
+  border: 2.5px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 82px; left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: var(--success); color: #000;
+  padding: 10px 20px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+  opacity: 0; transition: all .25s; z-index: 900;
+  pointer-events: none; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.empty {
+  text-align: center; color: var(--muted); font-size: 12px;
+  padding: 36px 20px; border: 1px dashed var(--border2); border-radius: var(--r);
+}
+
+.plan-active-bar {
+  background: var(--s2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 13px; margin-bottom: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.pab-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
+.pab-name { font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 1px; }
+.pab-date { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent); }
+
+.divider-label {
+  font-size: 10px; color: var(--muted); font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px;
+  margin: 14px 0 8px;
+}
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup">
+  <div class="setup-logo">Diego<em>.</em>Track</div>
+  <div class="setup-tagline">Performance · Nutrição · Ciclo — tudo no Notion</div>
+
+  <div class="setup-card">
+    <div class="sc-step">PASSO 1 — NOTION INTEGRATION</div>
+    <div class="sc-title">Criar token de acesso</div>
+    <div class="sc-desc">
+      1. Acesse <a href="https://www.notion.so/profile/integrations" target="_blank">notion.so/profile/integrations</a><br>
+      2. <b>+ New integration</b> → nome: <b>DiegoTrack</b><br>
+      3. Capabilities: <b>Read, Update, Insert content</b><br>
+      4. Copie o <b>Internal Integration Token</b><br><br>
+      Depois, no Notion vá até a página <b>🏋️ DiegoTrack</b><br>
+      → <b>··· → Connections → Add → DiegoTrack</b>
+    </div>
+    <input class="sc-input" id="inNotion" type="password" placeholder="secret_xxxxxxxxxxxxxxxx">
+  </div>
+
+  <div class="setup-card">
+    <div class="sc-step">PASSO 2 — CLAUDE API KEY</div>
+    <div class="sc-title">Para salvar dados e ler PDFs</div>
+    <div class="sc-desc">
+      Acesse <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br>
+      → <b>API Keys → Create Key</b><br><br>
+      Essa chave faz a ponte entre o app e o Notion.<br>
+      Custo: ~R$ 0,10 por importação de PDF. Salvar treinos é gratuito.
+    </div>
+    <input class="sc-input" id="inClaude" type="password" placeholder="sk-ant-xxxxxxxxxxxxxxxx">
+  </div>
+
+  <button class="btn-enter" onclick="saveSetup()">ENTRAR →</button>
+</div>
+
+<!-- OVERLAY -->
+<div class="overlay" id="overlay" style="display:none">
+  <div class="spinner"></div>
+  <div id="overlayMsg">Carregando...</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- APP -->
+<div id="app">
+  <div class="top-bar">
+    <div class="top-logo">Diego<em>.</em>Track</div>
+    <div class="sync-pill" onclick="syncAll()">
+      <div class="sync-dot" id="sdot"></div>
+      <span id="slabel">—</span>
+    </div>
+  </div>
+
+  <!-- TREINO -->
+  <div class="page active" id="pg-treino">
+    <div class="alert-badge">
+      <div class="ab-icon">📅</div>
+      <div>
+        <div class="ab-title">Feedback em 10 dias — 30/03</div>
+        <div class="ab-sub">Anote as cargas. Personal avalia dia 30.</div>
+      </div>
+    </div>
+    <div class="plan-active-bar" id="planBar" style="display:none">
+      <div>
+        <div class="pab-label">Plano ativo</div>
+        <div class="pab-name" id="planBarName">—</div>
+      </div>
+      <div class="pab-date" id="planBarDate"></div>
+    </div>
+    <div class="page-title">Sessão</div>
+    <div class="page-sub" id="todayLabel"></div>
+    <div class="session-grid" id="sessGrid"></div>
+    <div id="workForm"></div>
+  </div>
+
+  <!-- PROGRESSO -->
+  <div class="page" id="pg-dash">
+    <div class="page-title">Progresso</div>
+    <div class="page-sub">Histórico e recordes do Notion</div>
+    <div class="kpi-row" id="kpiRow"></div>
+    <div class="divider-label">Recordes Pessoais</div>
+    <div id="prList"></div>
+    <div class="divider-label">Histórico</div>
+    <div id="histList"></div>
+  </div>
+
+  <!-- DIETA -->
+  <div class="page" id="pg-dieta">
+    <div class="page-title">Dieta</div>
+    <div id="dietContent"></div>
+  </div>
+
+  <!-- ERGO -->
+  <div class="page" id="pg-ergo">
+    <div class="page-title">Ergogênicos</div>
+    <div class="page-sub">Protocolo salvo no Notion</div>
+    <div class="ergo-form">
+      <div class="fl">
+        <label class="fl-label">Composto</label>
+        <select class="fl-select" id="eComp">
+          <option value="">Selecionar...</option>
+          <option>Testosterona Enantato</option><option>Testosterona Cipionato</option>
+          <option>Testosterona Propionato</option><option>Masteron Enantato</option>
+          <option>Masteron Propionato</option><option>Trembolona Acetato</option>
+          <option>Trembolona Enantato</option><option>Boldenona</option>
+          <option>Oxandrolona</option><option>Winstrol</option>
+          <option>HCG</option><option>Anastrozol</option><option>Cabergolina</option>
+          <option>Outro</option>
+        </select>
+      </div>
+      <div class="fl-2">
+        <div><label class="fl-label">Dose (mg)</label><input class="fl-input" type="number" id="eDose" placeholder="250"></div>
+        <div><label class="fl-label">Frequência</label>
+          <select class="fl-select" id="eFreq">
+            <option>ED (diário)</option><option>EOD (a cada 2d)</option>
+            <option>2x/sem</option><option>1x/sem</option><option>Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="fl" style="margin-top:10px">
+        <label class="fl-label">Data início</label>
+        <input class="fl-input" type="date" id="eDate">
+      </div>
+      <div class="fl">
+        <label class="fl-label">Observações</label>
+        <textarea class="fl-textarea" id="eObs" placeholder="Semana 4, exame em 15/04..."></textarea>
+      </div>
+      <button class="btn-save" onclick="saveErgo()">REGISTRAR COMPOSTO</button>
+    </div>
+    <div class="divider-label">Histórico</div>
+    <div id="ergoHist"></div>
+  </div>
+
+  <!-- PLANO -->
+  <div class="page" id="pg-plano">
+    <div class="page-title">Novo Plano</div>
+    <div class="page-sub">Sube os PDFs do mês → Claude extrai → salva no Notion</div>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileIn" accept=".pdf" multiple onchange="onFiles(event)">
+      <div class="dz-icon">📄</div>
+      <div class="dz-title">Soltar PDFs aqui</div>
+      <div class="dz-sub">Treino e/ou dieta do mês · Toque para selecionar</div>
+    </div>
+    <div id="fileList"></div>
+    <div class="prog-box" id="progBox" style="display:none">
+      <div class="prog-label">Lendo com Claude AI</div>
+      <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+      <div class="prog-msg" id="progMsg">Iniciando...</div>
+    </div>
+    <div id="previewBox" style="display:none"></div>
+    <button class="btn-save" id="btnExtract" onclick="extractPDFs()" style="display:none">🤖 EXTRAIR COM CLAUDE AI</button>
+    <button class="btn-confirm" id="btnConfirm" onclick="confirmPlan()" style="display:none">✅ ATIVAR PLANO</button>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="bn-btn active" onclick="goPage('treino',this)"><span class="icon">🏋️</span>Treino</button>
+    <button class="bn-btn" onclick="goPage('dash',this)"><span class="icon">📊</span>Progresso</button>
+    <button class="bn-btn" onclick="goPage('dieta',this)"><span class="icon">🥗</span>Dieta</button>
+    <button class="bn-btn" onclick="goPage('ergo',this)"><span class="icon">💉</span>Ergo</button>
+    <button class="bn-btn" onclick="goPage('plano',this)"><span class="icon">📄</span>Plano</button>
+  </nav>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  CONFIG — IDs dos databases do Notion
+// ══════════════════════════════════════════
+const DB_TREINOS  = 'e0ea4713-85ab-4a88-a30d-8908930978a2';
+const DB_ERGO     = '3b4d438e-cbde-4b2d-8091-6b06b4c3997e';
+const DB_PLANOS   = 'b8281632-28b9-433a-b58d-65e9f8bddc6f';
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let NOTION_KEY = localStorage.getItem('dt_nk') || '';
+let CLAUDE_KEY = localStorage.getItem('dt_ck') || '';
+let workouts = [], ergoLog = [], plans = [], activePlan = null;
+let currentSess = null, selFiles = [], pendingPlan = null;
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+document.getElementById('eDate').value = new Date().toISOString().split('T')[0];
+document.getElementById('todayLabel').textContent =
+  new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
+
+if (NOTION_KEY && CLAUDE_KEY) boot();
+else document.getElementById('setup').style.display = 'flex';
+
+function saveSetup() {
+  const nk = document.getElementById('inNotion').value.trim();
+  const ck = document.getElementById('inClaude').value.trim();
+  if (!nk || !ck) { toast('Preencha as duas chaves!', true); return; }
+  NOTION_KEY = nk; CLAUDE_KEY = ck;
+  localStorage.setItem('dt_nk', nk);
+  localStorage.setItem('dt_ck', ck);
+  document.getElementById('setup').style.display = 'none';
+  boot();
+}
+
+async function boot() {
+  document.getElementById('app').style.display = 'block';
+  await syncAll();
+}
+
+// ══════════════════════════════════════════
+//  CLAUDE API — proxy para Notion
+//  O app nunca chama o Notion diretamente.
+//  Todas as operações passam pela Claude API
+//  que tem acesso ao Notion via MCP.
+// ══════════════════════════════════════════
+async function callClaude(systemPrompt, userMsg, maxTokens = 1500) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'anthropic-version': '2023-06-01',
+      'x-api-key': CLAUDE_KEY,
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMsg }],
+    })
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || r.status); }
+  const data = await r.json();
+  return data.content.filter(b => b.type === 'text').map(b => b.text).join('');
+}
+
+// Chama Claude com MCP Notion habilitado
+async function callClaudeWithNotion(userMsg, maxTokens = 2000) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'mcp-client-2025-04-04',
+      'x-api-key': CLAUDE_KEY,
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: maxTokens,
+      mcp_servers: [{
+        type: 'url',
+        url: 'https://mcp.notion.com/mcp',
+        name: 'notion',
+        authorization_token: NOTION_KEY,
+      }],
+      system: `Você é o backend do app DiegoTrack. 
+Database IDs do Notion:
+- Treinos: ${DB_TREINOS}
+- Ergogênicos: ${DB_ERGO}  
+- Planos Mensais: ${DB_PLANOS}
+
+Quando precisar ler ou escrever dados, use as ferramentas do Notion MCP.
+Sempre responda APENAS com JSON válido, sem markdown, sem explicações.`,
+      messages: [{ role: 'user', content: userMsg }],
+    })
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || r.status); }
+  const data = await r.json();
+  return data.content.filter(b => b.type === 'text').map(b => b.text).join('');
+}
+
+function parseJSON(raw) {
+  return JSON.parse(raw.replace(/```json|```/g, '').trim());
+}
+
+// ══════════════════════════════════════════
+//  SYNC — carrega tudo do Notion via Claude
+// ══════════════════════════════════════════
+async function syncAll() {
+  setSyncStatus('busy', 'Sincronizando...');
+  try {
+    const raw = await callClaudeWithNotion(`
+Busque os dados dos 3 databases do Notion e retorne este JSON exato:
+{
+  "workouts": [
+    {
+      "id": "id_da_pagina",
+      "date": "2026-03-18",
+      "dateLabel": "18/03/2026",
+      "session": "A",
+      "planName": "Nome do plano",
+      "exercises": [
+        { "name": "Nome exercício", "sets": [{"kg":20,"reps":8,"rir":1}] }
+      ]
+    }
+  ],
+  "ergo": [
+    { "id": "id", "date": "2026-03-01", "compound": "Testosterona Enantato", "dose": 250, "freq": "2x/sem", "obs": "" }
+  ],
+  "plans": [
+    { "id": "id", "date": "2026-03-01", "name": "Março 2026", "sessions": {}, "diet": null }
+  ]
+}
+
+Para workouts: busque a database Treinos, ordene por Data decrescente, limite 100.
+Agrupe por combinação de Data+Sessão+Plano para montar os exercícios/séries.
+O campo "Nome" da página tem formato "WKID|NomeExercício" onde WKID é o identificador do treino.
+
+Para ergo: busque Ergogênicos, ordene por Data decrescente.
+Para plans: busque Planos Mensais, ordene por Data decrescente. O campo JSON contém {sessions, diet}.
+
+Retorne SOMENTE o JSON.`, 4000);
+
+    const d = parseJSON(raw);
+    workouts = d.workouts || [];
+    ergoLog = d.ergo || [];
+    plans = d.plans || [];
+    activePlan = plans.length ? plans[0] : null;
+
+    setSyncStatus('ok', new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}));
+    buildUI();
+  } catch (e) {
+    setSyncStatus('err', 'Erro');
+    toast('Erro ao sincronizar: ' + e.message, true);
+    console.error(e);
+    buildUI(); // render with whatever we have
+  }
+}
+
+// ══════════════════════════════════════════
+//  UI HELPERS
+// ══════════════════════════════════════════
+function buildUI() {
+  buildSessGrid();
+  renderDiet();
+  renderDash();
+  renderErgoHist();
+  updatePlanBar();
+}
+
+function setSyncStatus(s, l) {
+  document.getElementById('sdot').className = 'sync-dot ' + s;
+  document.getElementById('slabel').textContent = l;
+}
+
+function showOverlay(msg) {
+  document.getElementById('overlayMsg').textContent = msg || '';
+  document.getElementById('overlay').style.display = 'flex';
+}
+function hideOverlay() { document.getElementById('overlay').style.display = 'none'; }
+
+function toast(msg, err = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = err ? 'var(--danger)' : 'var(--success)';
+  t.style.color = err ? '#fff' : '#000';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function goPage(p, btn) {
+  document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.bn-btn').forEach(x => x.classList.remove('active'));
+  document.getElementById('pg-' + p).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (p === 'dash') renderDash();
+}
+
+function toggleMeal(i) {
+  document.getElementById('mb' + i).classList.toggle('open');
+  document.getElementById('chev' + i).classList.toggle('open');
+}
+
+function updatePlanBar() {
+  const bar = document.getElementById('planBar');
+  if (activePlan) {
+    bar.style.display = 'flex';
+    document.getElementById('planBarName').textContent = activePlan.name;
+    document.getElementById('planBarDate').textContent = activePlan.date
+      ? new Date(activePlan.date + 'T12:00:00').toLocaleDateString('pt-BR') : '';
+  } else bar.style.display = 'none';
+}
+
+// ══════════════════════════════════════════
+//  SESSIONS
+// ══════════════════════════════════════════
+function getActiveSessions() {
+  if (activePlan?.sessions && Object.keys(activePlan.sessions).length)
+    return activePlan.sessions;
+  // fallback hardcoded (plano atual)
+  return {
+    A:{label:'A',day:'Seg',exercises:[{name:'Supino Inclinado com Halter',sets:3},{name:'Supino Reto com Halter',sets:3},{name:'Desenvolvimento com Halter Pegada Fechada',sets:3},{name:'Elevação Lateral com Halter',sets:3},{name:'Tríceps Pulley Barra V',sets:2},{name:'Tríceps Francês Corda',sets:2},{name:'Abdominal Máquina',sets:4}]},
+    B:{label:'B',day:'Ter',exercises:[{name:'Puxada Frontal Aberta Pegada Pronada',sets:3},{name:'Remada Baixa Máquina Pegada Neutra Aberta',sets:3},{name:'Remada Máquina Hammer Pegada Supinada',sets:3},{name:'Crucifixo Invertido Máquina',sets:3},{name:'Rosca Direta na Polia',sets:3},{name:'Rosca Martelo com Halter',sets:3},{name:'Abdominal Lombar Máquina',sets:4}]},
+    C:{label:'C',day:'Qua',exercises:[{name:'Cama Flexora',sets:3},{name:'Cadeira Flexora',sets:3},{name:'RDL com Halter',sets:2},{name:'Cadeira Abdutora',sets:3},{name:'Panturrilha Máquina em Pé',sets:4},{name:'Abdominal Supra na Polia',sets:4}]},
+    D:{label:'D',day:'Qui',exercises:[{name:'Supino Inclinado Máquina Hammer',sets:3},{name:'Puxada Frontal Aberta Pegada Pronada',sets:3},{name:'Crucifixo Máquina',sets:3},{name:'Puxada Supinada Unilateral Hammer',sets:2},{name:'Tríceps Francês Máquina Pórtico',sets:2},{name:'Rosca Scott Máquina',sets:3},{name:'Abdominal Lombar Máquina',sets:4}]},
+    F:{label:'F',day:'Sáb',exercises:[{name:'Agachamento Hack',sets:3},{name:'Leg Press Cabo',sets:3},{name:'Cadeira Extensora',sets:2},{name:'Cadeira Adutora',sets:2},{name:'Panturrilha Máquina em Pé',sets:4},{name:'Abdominal Supra na Polia',sets:4}]},
+  };
+}
+
+function buildSessGrid() {
+  const sessions = getActiveSessions();
+  const today = new Date().toISOString().split('T')[0];
+  const g = document.getElementById('sessGrid'); g.innerHTML = '';
+  Object.keys(sessions).forEach(k => {
+    const s = sessions[k];
+    const done = workouts.some(w => w.session === k && w.date === today);
+    const b = document.createElement('button');
+    b.className = 'sess-btn' + (done ? ' done' : '') + (currentSess === k ? ' active' : '');
+    b.innerHTML = `Sessão ${k}<small>${s.day || ''}</small>`;
+    b.onclick = () => selectSess(k);
+    g.appendChild(b);
+  });
+}
+
+function selectSess(k) { currentSess = k; buildSessGrid(); renderWorkForm(); }
+
+function renderWorkForm() {
+  if (!currentSess) return;
+  const sessions = getActiveSessions();
+  const s = sessions[currentSess];
+  let h = `<div class="card card-accent">
+    <div class="card-header">
+      <div class="card-title">Sessão ${currentSess} — ${s.day || ''}</div>
+      <div class="chip chip-green">HOJE</div>
+    </div>`;
+  s.exercises.forEach((ex, ei) => {
+    h += `<div class="ex-item"><div class="ex-name">${ex.name}</div>
+      <div class="set-labels">
+        <div class="set-label"></div>
+        <div class="set-label">kg</div>
+        <div class="set-label">Reps</div>
+        <div class="set-label">RIR</div>
+        <div></div>
+      </div>
+      <div id="sets${ei}">`;
+    for (let i = 0; i < (ex.sets || 3); i++) h += makeSetRow(ei, i, i === (ex.sets || 3) - 1);
+    h += `</div><button class="add-set-btn" onclick="addSet(${ei})">+ série</button></div>`;
+  });
+  h += `<button class="btn-save" id="btnSave" onclick="saveWorkout()">💾 SALVAR NO NOTION</button></div>`;
+  document.getElementById('workForm').innerHTML = h;
+}
+
+function makeSetRow(ei, si, isTop) {
+  const lbl = isTop ? '★' : (si + 1);
+  const col = isTop ? 'var(--accent)' : '';
+  return `<div class="set-row" id="sr${ei}_${si}">
+    <div class="set-num" style="color:${col}">${lbl}</div>
+    <input class="set-input" type="number" step="0.5" placeholder="kg" id="kg${ei}_${si}">
+    <input class="set-input" type="number" placeholder="reps" id="rp${ei}_${si}">
+    <input class="set-input" type="number" placeholder="0-3" id="rr${ei}_${si}">
+    <button class="set-del" onclick="this.closest('.set-row').remove()">×</button>
+  </div>`;
+}
+
+function addSet(ei) {
+  const c = document.getElementById('sets' + ei);
+  c.insertAdjacentHTML('beforeend', makeSetRow(ei, c.querySelectorAll('.set-row').length, false));
+}
+
+async function saveWorkout() {
+  if (!currentSess) return;
+  const sessions = getActiveSessions();
+  const s = sessions[currentSess];
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+
+  const wid = Date.now();
+  const date = new Date().toISOString().split('T')[0];
+  const planName = activePlan?.name || '';
+
+  // Collect sets
+  const exerciseSets = [];
+  s.exercises.forEach((ex, ei) => {
+    const c = document.getElementById('sets' + ei); if (!c) return;
+    c.querySelectorAll('.set-row').forEach((_, si) => {
+      const kg = parseFloat(document.getElementById(`kg${ei}_${si}`)?.value) || null;
+      const rp = parseInt(document.getElementById(`rp${ei}_${si}`)?.value) || null;
+      const rr = document.getElementById(`rr${ei}_${si}`)?.value || '';
+      if (kg || rp) exerciseSets.push({ exercise: ex.name, kg: kg || 0, reps: rp || 0, rir: rr ? parseFloat(rr) : null });
+    });
+  });
+
+  if (!exerciseSets.length) {
+    toast('Preencha pelo menos uma série!', true);
+    btn.disabled = false; btn.textContent = '💾 SALVAR NO NOTION';
+    return;
+  }
+
+  setSyncStatus('busy', 'Salvando...');
+  try {
+    const payload = JSON.stringify({ wid, date, session: currentSess, planName, exerciseSets });
+    await callClaudeWithNotion(`
+Salve esse treino no Notion. Para cada item em exerciseSets, crie uma página na database Treinos (${DB_TREINOS}) com:
+- Nome: "${wid}|{exercise}" (ex: "${wid}|Supino Inclinado com Halter")
+- Data: "${date}"
+- Sessão: "{session}"
+- Exercício: "{exercise}"
+- Carga (kg): {kg}
+- Reps: {reps}
+- RIR: {rir} (null se vazio)
+- Plano: "${planName}"
+
+Dados do treino: ${payload}
+
+Crie uma página por item em exerciseSets. Após criar todas, retorne: {"ok":true,"count":N}`, 2000);
+
+    setSyncStatus('ok', 'Salvo');
+    toast('Treino salvo no Notion! 💪');
+    await syncAll();
+  } catch (e) {
+    setSyncStatus('err', 'Erro');
+    toast('Erro ao salvar: ' + e.message, true);
+  }
+  btn.disabled = false; btn.textContent = '💾 SALVAR NO NOTION';
+}
+
+// ══════════════════════════════════════════
+//  DASH
+// ══════════════════════════════════════════
+function renderDash() {
+  const week = workouts.filter(w => (new Date() - new Date(w.date + 'T12:00:00')) / 86400000 <= 7).length;
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi"><div class="kpi-val">${workouts.length}</div><div class="kpi-label">Treinos salvos</div></div>
+    <div class="kpi"><div class="kpi-val">${week}</div><div class="kpi-label">Essa semana</div></div>`;
+
+  const prs = {};
+  workouts.forEach(w => w.exercises?.forEach(ex => ex.sets?.forEach(s => {
+    if (s.kg && (!prs[ex.name] || s.kg > prs[ex.name])) prs[ex.name] = s.kg;
+  })));
+  const pe = Object.entries(prs).sort((a, b) => b[1] - a[1]);
+  document.getElementById('prList').innerHTML = pe.length
+    ? pe.map(([ex, kg]) => `<div class="pr-row"><div class="pr-name">${ex}</div><div class="pr-val">${kg}<span class="pr-unit"> kg</span></div></div>`).join('')
+    : '<div class="empty">Registre treinos para ver seus recordes.</div>';
+
+  const sessions = getActiveSessions();
+  document.getElementById('histList').innerHTML = workouts.length
+    ? workouts.map(w => `<div class="hist-entry">
+        <div class="hist-date">${w.dateLabel || w.date}</div>
+        <div class="hist-sess">Sessão ${w.session}${sessions[w.session] ? ' — ' + sessions[w.session].day : ''}${w.planName ? ' · ' + w.planName : ''}</div>
+        ${(w.exercises || []).map(ex => `<div class="hist-ex">${ex.name}</div><div class="hist-sets">${(ex.sets || []).map(s => `${s.kg}kg×${s.reps}${s.rir !== '' && s.rir != null ? ' (RIR ' + s.rir + ')' : ''}`).join(' | ')}</div>`).join('')}
+      </div>`).join('')
+    : '<div class="empty">Nenhum treino registrado ainda.</div>';
+}
+
+// ══════════════════════════════════════════
+//  DIET
+// ══════════════════════════════════════════
+function renderDiet() {
+  const el = document.getElementById('dietContent');
+  const diet = activePlan?.diet;
+  if (!diet) {
+    el.innerHTML = '<div class="empty" style="margin-top:16px">Nenhum plano alimentar ativo.<br>Importe um PDF na aba <b>📄 Plano</b>.</div>';
+    return;
+  }
+  const t = diet.totals || {};
+  el.innerHTML = `
+    <div class="plan-active-bar" style="margin-top:12px">
+      <div><div class="pab-label">Plano ativo</div><div class="pab-name">${activePlan.name}</div></div>
+      <div class="pab-date">${activePlan.date ? new Date(activePlan.date + 'T12:00:00').toLocaleDateString('pt-BR') : ''}</div>
+    </div>
+    <div class="macro-grid">
+      <div class="m-item"><div class="m-val">${t.prot || '—'}g</div><div class="m-label">Proteína</div></div>
+      <div class="m-item"><div class="m-val">${t.carb || '—'}g</div><div class="m-label">Carbo</div></div>
+      <div class="m-item"><div class="m-val">${t.fat || '—'}g</div><div class="m-label">Gordura</div></div>
+      <div class="m-item"><div class="m-val">${t.kcal || '—'}</div><div class="m-label">Kcal</div></div>
+    </div>
+    ${(diet.meals || []).map((m, i) => `
+    <div class="meal-wrap">
+      <div class="meal-hd" onclick="toggleMeal(${i})">
+        <div class="meal-name">${m.name}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${m.cals ? `<div class="meal-kcal">${m.cals} kcal</div>` : ''}
+          <div class="chev" id="chev${i}">▾</div>
+        </div>
+      </div>
+      <div class="meal-bd" id="mb${i}">
+        ${(m.foods || []).map(f => `<div class="food-line"><div class="food-nm">${f.name}</div><div class="food-qt">${f.qty}</div></div>`).join('')}
+        ${m.obs ? `<div class="meal-obs">⚠️ ${m.obs}</div>` : ''}
+      </div>
+    </div>`).join('')}`;
+}
+
+// ══════════════════════════════════════════
+//  ERGO
+// ══════════════════════════════════════════
+async function saveErgo() {
+  const compound = document.getElementById('eComp').value;
+  const dose = parseFloat(document.getElementById('eDose').value) || null;
+  const freq = document.getElementById('eFreq').value;
+  const date = document.getElementById('eDate').value;
+  const obs = document.getElementById('eObs').value;
+  if (!compound || !dose) { toast('Preencha composto e dose!', true); return; }
+
+  setSyncStatus('busy', 'Salvando...');
+  try {
+    await callClaudeWithNotion(`
+Crie uma página na database Ergogênicos (${DB_ERGO}) com:
+- Nome: "${compound} — ${date}"
+- Data: "${date}"
+- Composto: "${compound}"
+- Dose (mg): ${dose}
+- Frequência: "${freq}"
+- Observações: "${obs}"
+
+Retorne: {"ok":true}`, 500);
+
+    setSyncStatus('ok', 'Salvo');
+    document.getElementById('eComp').value = '';
+    document.getElementById('eDose').value = '';
+    document.getElementById('eObs').value = '';
+    toast('Protocolo registrado! 💉');
+    await syncAll();
+  } catch (e) {
+    setSyncStatus('err', 'Erro');
+    toast('Erro: ' + e.message, true);
+  }
+}
+
+function renderErgoHist() {
+  const el = document.getElementById('ergoHist');
+  if (!ergoLog.length) { el.innerHTML = '<div class="empty">Nenhum registro ainda.</div>'; return; }
+  el.innerHTML = ergoLog.map(e => `
+    <div class="ergo-entry">
+      <div class="ergo-comp">${e.compound}</div>
+      <div class="ergo-dose">${e.dose}mg — ${e.freq}</div>
+      <div class="ergo-meta">${e.date ? new Date(e.date + 'T12:00:00').toLocaleDateString('pt-BR') : ''}${e.obs ? ' · ' + e.obs : ''}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════
+//  PDF IMPORT
+// ══════════════════════════════════════════
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); addFiles(Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf')); });
+function onFiles(e) { addFiles(Array.from(e.target.files)); e.target.value = ''; }
+function addFiles(files) { files.forEach(f => { if (!selFiles.find(x => x.name === f.name)) selFiles.push(f); }); renderFileList(); }
+function removeFile(name) { selFiles = selFiles.filter(f => f.name !== name); renderFileList(); }
+
+function renderFileList() {
+  const el = document.getElementById('fileList');
+  document.getElementById('btnConfirm').style.display = 'none';
+  document.getElementById('previewBox').style.display = 'none';
+  pendingPlan = null;
+  if (!selFiles.length) { el.innerHTML = ''; document.getElementById('btnExtract').style.display = 'none'; return; }
+  el.innerHTML = selFiles.map(f => `
+    <div class="file-chip">
+      <span style="font-size:16px">📄</span>
+      <span class="fc-name">${f.name}</span>
+      <button class="fc-del" onclick="removeFile('${f.name}')">×</button>
+    </div>`).join('');
+  document.getElementById('btnExtract').style.display = 'block';
+}
+
+async function fileToB64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function setProgress(pct, msg) {
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progMsg').textContent = msg;
+}
+
+async function extractPDFs() {
+  if (!selFiles.length) return;
+  document.getElementById('btnExtract').style.display = 'none';
+  document.getElementById('progBox').style.display = 'block';
+  setProgress(10, 'Convertendo PDFs...');
+
+  try {
+    const blocks = [];
+    for (let i = 0; i < selFiles.length; i++) {
+      setProgress(10 + 20 * (i / selFiles.length), `Lendo ${selFiles[i].name}...`);
+      const b64 = await fileToB64(selFiles[i]);
+      blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
+    }
+    blocks.push({ type: 'text', text: `Extraia as informações desses PDFs de planejamento esportivo. Retorne APENAS JSON válido:
+{"planName":"Março 2026","sessions":{"A":{"label":"A","day":"Segunda","exercises":[{"name":"Exercício","sets":3}]}},"diet":{"meals":[{"name":"Refeição","cals":500,"prot":30,"carb":50,"fat":15,"foods":[{"name":"Alimento","qty":"200g"}],"obs":""}],"totals":{"prot":190,"carb":220,"fat":84,"kcal":2400}}}
+Se não houver sessões: "sessions":{}. Se não houver dieta: "diet":null. Retorne SOMENTE o JSON.` });
+
+    setProgress(40, 'Enviando para Claude AI...');
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'x-api-key': CLAUDE_KEY },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4000, messages: [{ role: 'user', content: blocks }] })
+    });
+    setProgress(80, 'Processando...');
+    if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || resp.status); }
+    const data = await resp.json();
+    const raw = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
+    pendingPlan = parseJSON(raw);
+    setProgress(100, 'Concluído!');
+    showExtractPreview(pendingPlan);
+  } catch (e) {
+    document.getElementById('progBox').style.display = 'none';
+    document.getElementById('btnExtract').style.display = 'block';
+    toast('Erro: ' + e.message, true);
+  }
+}
+
+function showExtractPreview(data) {
+  const el = document.getElementById('previewBox');
+  el.style.display = 'block';
+  const sk = Object.keys(data.sessions || {});
+  const meals = data.diet?.meals || [];
+  let h = `<div class="preview-box"><div class="prev-title">✅ ${data.planName || 'Novo Plano'}</div>`;
+  if (sk.length) {
+    h += `<div class="divider-label">Treino — ${sk.length} sessões</div>`;
+    sk.forEach(k => { const s = data.sessions[k]; h += `<div class="prev-item"><b>Sessão ${k} (${s.day || ''})</b> — ${s.exercises?.length || 0} exercícios</div>`; });
+  }
+  if (meals.length) {
+    h += `<div class="divider-label">Dieta — ${meals.length} refeições</div>`;
+    meals.forEach(m => { h += `<div class="prev-item"><b>${m.name}</b>${m.cals ? ' — ' + m.cals + ' kcal' : ''}</div>`; });
+    if (data.diet?.totals) {
+      const t = data.diet.totals;
+      h += `<div style="margin-top:8px;padding:8px;background:var(--s3);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent)">P:${t.prot}g · C:${t.carb}g · G:${t.fat}g · ${t.kcal}kcal</div>`;
+    }
+  }
+  h += '</div>';
+  el.innerHTML = h;
+  document.getElementById('btnConfirm').style.display = 'block';
+}
+
+async function confirmPlan() {
+  if (!pendingPlan) return;
+  const btn = document.getElementById('btnConfirm');
+  btn.disabled = true; btn.textContent = 'Salvando no Notion...';
+  const date = new Date().toISOString().split('T')[0];
+  const name = pendingPlan.planName || ('Plano ' + new Date().toLocaleDateString('pt-BR'));
+  const planJSON = JSON.stringify({ sessions: pendingPlan.sessions || {}, diet: pendingPlan.diet || null });
+
+  setSyncStatus('busy', 'Salvando plano...');
+  try {
+    await callClaudeWithNotion(`
+Crie uma página na database Planos Mensais (${DB_PLANOS}) com:
+- Nome: "${name}"
+- Data: "${date}"
+- JSON: ${JSON.stringify(planJSON)}
+
+Retorne: {"ok":true}`, 500);
+
+    setSyncStatus('ok', 'Plano salvo');
+    selFiles = [];
+    document.getElementById('fileList').innerHTML = '';
+    document.getElementById('progBox').style.display = 'none';
+    document.getElementById('previewBox').style.display = 'none';
+    document.getElementById('btnExtract').style.display = 'none';
+    btn.style.display = 'none';
+    pendingPlan = null;
+    toast('Plano "' + name + '" ativado! 🎯');
+    await syncAll();
+  } catch (e) {
+    setSyncStatus('err', 'Erro');
+    toast('Erro: ' + e.message, true);
+    btn.disabled = false; btn.textContent = '✅ ATIVAR PLANO';
+  }
+}
+</script>
+</body>
+</html>
