@@ -444,7 +444,15 @@ async function notionDelete(pageId) {
 // ──────────────────────────────────────────
 const prop = {
   title: (v) => ({ title: [{ text: { content: String(v) } }] }),
-  text:  (v) => ({ rich_text: [{ text: { content: String(v ?? '') } }] }),
+  text:  (v) => {
+    // Notion rich_text max 2000 chars per block — split into chunks
+    const str = String(v ?? '');
+    const chunks = [];
+    for (let i = 0; i < str.length || chunks.length === 0; i += 2000) {
+      chunks.push({ text: { content: str.slice(i, i + 2000) } });
+    }
+    return { rich_text: chunks };
+  },
   num:   (v) => ({ number: v !== null && v !== '' ? Number(v) : null }),
   date:  (v) => ({ date: v ? { start: v } : null }),
 };
@@ -456,7 +464,9 @@ function parseTitle(p, key) {
   return p?.properties?.[key]?.title?.[0]?.plain_text || '';
 }
 function parseText(p, key) {
-  return p?.properties?.[key]?.rich_text?.[0]?.plain_text || '';
+  // Concatenate all rich_text blocks (handles chunked JSON > 2000 chars)
+  const blocks = p?.properties?.[key]?.rich_text || [];
+  return blocks.map(b => b.plain_text || '').join('');
 }
 function parseNum(p, key) {
   return p?.properties?.[key]?.number ?? null;
@@ -968,7 +978,7 @@ async function confirmPlan() {
     await notionCreate(DB_PLANOS, {
       'Nome': prop.title(name),
       'Data': prop.date(date),
-      'JSON': prop.text(planJSON),
+      'JSON': prop.text(planJSON), // prop.text auto-chunks into 2000-char blocks
     });
     setSyncStatus('ok', 'Plano salvo');
     selFiles = [];
