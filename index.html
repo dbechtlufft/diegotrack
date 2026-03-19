@@ -345,7 +345,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 const DB_TREINOS = 'e0ea4713-85ab-4a88-a30d-8908930978a2';
 const DB_ERGO    = '3b4d438e-cbde-4b2d-8091-6b06b4c3997e';
 const DB_PLANOS  = 'b8281632-28b9-433a-b58d-65e9f8bddc6f';
-const NOTION_API = 'https://api.notion.com/v1';
+const NOTION_API = 'https://diegotrack-proxy.diegobechtlufft-db.workers.dev/notion/v1';
 const NOTION_VER = '2022-06-28';
 
 // ══════════════════════════════════════════
@@ -387,7 +387,7 @@ async function boot() {
 // ══════════════════════════════════════════
 function notionHeaders() {
   return {
-    'Authorization': 'Bearer ' + NOTION_KEY,
+    
     'Content-Type': 'application/json',
     'Notion-Version': NOTION_VER,
   };
@@ -852,13 +852,12 @@ async function extractPDFs() {
 Se não houver sessões: "sessions":{}. Se não houver dieta: "diet":null. Retorne SOMENTE o JSON.` });
 
     setProgress(40, 'Enviando para Claude AI...');
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('https://diegotrack-proxy.diegobechtlufft-db.workers.dev/anthropic/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'anthropic-version': '2023-06-01',
         'x-api-key': CLAUDE_KEY,
-        'anthropic-dangerous-direct-browser-calls': 'true',
       },
       body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:4000, messages:[{ role:'user', content:blocks }] })
     });
