@@ -184,29 +184,12 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 <!-- SETUP -->
 <div id="setup">
   <div class="setup-logo">Diego<em>.</em>Track</div>
-  <div class="setup-tagline">Performance · Nutrição · Ciclo — tudo no Notion</div>
+  <div class="setup-tagline">Performance · Nutrição · Ciclo</div>
   <div class="setup-card">
-    <div class="sc-step">PASSO 1 — NOTION INTEGRATION TOKEN</div>
-    <div class="sc-title">Token de acesso ao Notion</div>
-    <div class="sc-desc">
-      1. Acesse <a href="https://www.notion.so/profile/integrations" target="_blank">notion.so/profile/integrations</a><br>
-      2. <b>+ New integration</b> → nome: <b>DiegoTrack</b><br>
-      3. Capabilities: <b>Read, Update, Insert content</b><br>
-      4. Copie o <b>Internal Integration Secret</b><br><br>
-      Depois, em cada database no Notion:<br>
-      → <b>··· → Connections → Add → DiegoTrack</b>
-    </div>
-    <input class="sc-input" id="inNotion" type="password" placeholder="ntn_xxxxxxxxxxxxxxxx ou secret_xxxxxxx">
-  </div>
-  <div class="setup-card">
-    <div class="sc-step">PASSO 2 — CLAUDE API KEY (só para PDFs)</div>
-    <div class="sc-title">Opcional — apenas para importar PDFs de treino/dieta</div>
-    <div class="sc-desc">
-      Acesse <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br>
-      → <b>API Keys → Create Key</b><br><br>
-      Deixe em branco se não quiser importar PDFs.
-    </div>
-    <input class="sc-input" id="inClaude" type="password" placeholder="sk-ant-xxxxxxxx (opcional)">
+    <div class="sc-step">ACESSO</div>
+    <div class="sc-title">Senha</div>
+    <input class="sc-input" id="inPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')saveSetup()">
+    <div id="passErr" style="color:var(--danger);font-size:11px;margin-top:8px;display:none">❌ Senha incorreta.</div>
   </div>
   <button class="btn-enter" onclick="saveSetup()">ENTRAR →</button>
 </div>
@@ -348,13 +331,55 @@ const DB_PLANOS  = '4c21beddf0734a40b013c6cb51448ccf';
 const NOTION_API = 'https://diegotrack-proxy.diegobechtlufft-db.workers.dev/notion/v1';
 const NOTION_VER = '2022-06-28';
 
+// Tokens encrypted with AES-256-GCM — password required to decrypt
+const _ENC = {
+  salt: 'VBgQS82kNagzMz9/0hBm3Q==',
+  iv:   'opkRR1wSQ9bB6dkp',
+  notion: '7x5Q/thBzwoizebsZtmS0iIsXUcISkdItAnc33DNEoiOe5yNJL00Xz6Hw/fGMsxfA52IHOIHxZhFEXI3HpNauYrL',
+  claude: '8gETwIME1lJhk+fnfIDquQJ7VHobGWRklnCC2nDjJtK0OcfNeuc/IT+b8uqla84vTbHTFCWh5tocovwbESCKfMdWBWQC8xFBvSRjvvTIQ1Fx01QdeTmAneQDjIFf0twXMmINgtt1iJASR1w2Tjr0uCs5oKkMnBx2ywA+Ug==',
+};
+
 // ══════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════
-let NOTION_KEY = localStorage.getItem('dt_nk') || '';
-let CLAUDE_KEY = localStorage.getItem('dt_ck') || '';
+let NOTION_KEY = '';
+let CLAUDE_KEY = '';
 let workouts = [], ergoLog = [], plans = [], activePlan = null;
 let currentSess = null, selFiles = [], pendingPlan = null;
+
+// ══════════════════════════════════════════
+//  CRYPTO HELPERS
+// ══════════════════════════════════════════
+function b64ToBytes(b64) {
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+async function deriveKey(password, salt) {
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false, ['decrypt']
+  );
+}
+
+async function decryptToken(encB64, key, iv) {
+  const encBytes = b64ToBytes(encB64);
+  const ciphertext = encBytes.slice(0, -16);
+  const tag = encBytes.slice(-16);
+  // AES-GCM in WebCrypto expects ciphertext+tag concatenated
+  const combined = new Uint8Array(ciphertext.length + tag.length);
+  combined.set(ciphertext); combined.set(tag, ciphertext.length);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    combined
+  );
+  return new TextDecoder().decode(decrypted);
+}
 
 // ══════════════════════════════════════════
 //  INIT
@@ -363,18 +388,47 @@ document.getElementById('eDate').value = new Date().toISOString().split('T')[0];
 document.getElementById('todayLabel').textContent =
   new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
 
-if (NOTION_KEY) boot();
-else document.getElementById('setup').style.display = 'flex';
+// Auto-login if password already saved in session
+const _savedPass = sessionStorage.getItem('dt_pass');
+if (_savedPass) {
+  tryLogin(_savedPass);
+} else {
+  document.getElementById('setup').style.display = 'flex';
+  setTimeout(() => document.getElementById('inPass')?.focus(), 100);
+}
 
-function saveSetup() {
-  const nk = document.getElementById('inNotion').value.trim();
-  const ck = document.getElementById('inClaude').value.trim();
-  if (!nk) { toast('Preencha o token do Notion!', true); return; }
-  NOTION_KEY = nk; CLAUDE_KEY = ck;
-  localStorage.setItem('dt_nk', nk);
-  if (ck) localStorage.setItem('dt_ck', ck);
-  document.getElementById('setup').style.display = 'none';
-  boot();
+async function saveSetup() {
+  const pass = document.getElementById('inPass').value.trim();
+  if (!pass) return;
+  document.getElementById('passErr').style.display = 'none';
+  document.querySelector('.btn-enter').disabled = true;
+  document.querySelector('.btn-enter').textContent = 'Verificando...';
+  const ok = await tryLogin(pass);
+  if (!ok) {
+    document.getElementById('passErr').style.display = 'block';
+    document.querySelector('.btn-enter').disabled = false;
+    document.querySelector('.btn-enter').textContent = 'ENTRAR →';
+    document.getElementById('inPass').value = '';
+    document.getElementById('inPass').focus();
+  }
+}
+
+async function tryLogin(password) {
+  try {
+    const salt = b64ToBytes(_ENC.salt);
+    const iv   = b64ToBytes(_ENC.iv);
+    const key  = await deriveKey(password, salt);
+    NOTION_KEY = await decryptToken(_ENC.notion, key, iv);
+    CLAUDE_KEY = await decryptToken(_ENC.claude, key, iv);
+    // Quick sanity check
+    if (!NOTION_KEY.startsWith('ntn_')) return false;
+    sessionStorage.setItem('dt_pass', password);
+    document.getElementById('setup').style.display = 'none';
+    await boot();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function boot() {
