@@ -708,15 +708,19 @@ function updatePlanBar() {
 // ══════════════════════════════════════════
 //  SESSIONS
 // ══════════════════════════════════════════
+// Sessões padrão — usadas quando não há plano ativo. Objeto persistente em memória.
+const DEFAULT_SESSIONS = {
+  A:{label:'A',day:'Seg',exercises:[{name:'Supino Inclinado com Halter',sets:3},{name:'Supino Reto com Halter',sets:3},{name:'Desenvolvimento com Halter Pegada Fechada',sets:3},{name:'Elevação Lateral com Halter',sets:3},{name:'Tríceps Pulley Barra V',sets:2},{name:'Tríceps Francês Corda',sets:2},{name:'Abdominal Máquina',sets:4}]},
+  B:{label:'B',day:'Ter',exercises:[{name:'Puxada Frontal Aberta Pegada Pronada',sets:3},{name:'Remada Baixa Máquina Pegada Neutra Aberta',sets:3},{name:'Remada Máquina Hammer Pegada Supinada',sets:3},{name:'Crucifixo Invertido Máquina',sets:3},{name:'Rosca Direta na Polia',sets:3},{name:'Rosca Martelo com Halter',sets:3},{name:'Abdominal Lombar Máquina',sets:4}]},
+  C:{label:'C',day:'Qua',exercises:[{name:'Cama Flexora',sets:3},{name:'Cadeira Flexora',sets:3},{name:'RDL com Halter',sets:2},{name:'Cadeira Abdutora',sets:3},{name:'Panturrilha Máquina em Pé',sets:4},{name:'Abdominal Supra na Polia',sets:4}]},
+  D:{label:'D',day:'Qui',exercises:[{name:'Supino Inclinado Máquina Hammer',sets:3},{name:'Puxada Frontal Aberta Pegada Pronada',sets:3},{name:'Crucifixo Máquina',sets:3},{name:'Puxada Supinada Unilateral Hammer',sets:2},{name:'Tríceps Francês Máquina Pórtico',sets:2},{name:'Rosca Scott Máquina',sets:3},{name:'Abdominal Lombar Máquina',sets:4}]},
+  F:{label:'F',day:'Sáb',exercises:[{name:'Agachamento Hack',sets:3},{name:'Leg Press Cabo',sets:3},{name:'Cadeira Extensora',sets:2},{name:'Cadeira Adutora',sets:2},{name:'Panturrilha Máquina em Pé',sets:4},{name:'Abdominal Supra na Polia',sets:4}]},
+};
+
 function getActiveSessions() {
+  // Sempre retorna a mesma referência — mutações persistem em memória
   if (activePlan?.sessions && Object.keys(activePlan.sessions).length) return activePlan.sessions;
-  return {
-    A:{label:'A',day:'Seg',exercises:[{name:'Supino Inclinado com Halter',sets:3},{name:'Supino Reto com Halter',sets:3},{name:'Desenvolvimento com Halter Pegada Fechada',sets:3},{name:'Elevação Lateral com Halter',sets:3},{name:'Tríceps Pulley Barra V',sets:2},{name:'Tríceps Francês Corda',sets:2},{name:'Abdominal Máquina',sets:4}]},
-    B:{label:'B',day:'Ter',exercises:[{name:'Puxada Frontal Aberta Pegada Pronada',sets:3},{name:'Remada Baixa Máquina Pegada Neutra Aberta',sets:3},{name:'Remada Máquina Hammer Pegada Supinada',sets:3},{name:'Crucifixo Invertido Máquina',sets:3},{name:'Rosca Direta na Polia',sets:3},{name:'Rosca Martelo com Halter',sets:3},{name:'Abdominal Lombar Máquina',sets:4}]},
-    C:{label:'C',day:'Qua',exercises:[{name:'Cama Flexora',sets:3},{name:'Cadeira Flexora',sets:3},{name:'RDL com Halter',sets:2},{name:'Cadeira Abdutora',sets:3},{name:'Panturrilha Máquina em Pé',sets:4},{name:'Abdominal Supra na Polia',sets:4}]},
-    D:{label:'D',day:'Qui',exercises:[{name:'Supino Inclinado Máquina Hammer',sets:3},{name:'Puxada Frontal Aberta Pegada Pronada',sets:3},{name:'Crucifixo Máquina',sets:3},{name:'Puxada Supinada Unilateral Hammer',sets:2},{name:'Tríceps Francês Máquina Pórtico',sets:2},{name:'Rosca Scott Máquina',sets:3},{name:'Abdominal Lombar Máquina',sets:4}]},
-    F:{label:'F',day:'Sáb',exercises:[{name:'Agachamento Hack',sets:3},{name:'Leg Press Cabo',sets:3},{name:'Cadeira Extensora',sets:2},{name:'Cadeira Adutora',sets:2},{name:'Panturrilha Máquina em Pé',sets:4},{name:'Abdominal Supra na Polia',sets:4}]},
-  };
+  return DEFAULT_SESSIONS;
 }
 
 function buildSessGrid() {
@@ -1239,13 +1243,22 @@ async function saveSessEdits() {
   const btn = document.querySelector('.btn-save-sess');
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
 
+  // Ler valores atuais de TODOS os selects visíveis no modal antes de salvar
   const sessions = getActiveSessions();
+  const s = sessions[editingSessKey];
+  if (s?.exercises) {
+    s.exercises.forEach((ex, i) => {
+      const sel = document.getElementById('exSel_' + i);
+      if (sel && sel.value) ex.name = sel.value;
+    });
+  }
+
   // Reconstruir catálogo com novos nomes
   Object.values(sessions).forEach(s =>
     s.exercises?.forEach(e => addToCatalog(e.name)));
 
   const planJSON = JSON.stringify({
-    sessions: activePlan.sessions,
+    sessions: activePlan.sessions || DEFAULT_SESSIONS,
     diet: activePlan.diet || null,
     exercises: activePlan.exercises || exerciseCatalog,
   });
@@ -1257,11 +1270,12 @@ async function saveSessEdits() {
     });
     setSyncStatus('ok', 'Salvo');
     toast('Sessões salvas no Notion ✓');
+    // Garantir que activePlan.sessions reflete as edições em memória
+    if (activePlan) activePlan.exercises = exerciseCatalog;
     closeSessModal();
-    // Atualizar o plan local
-    activePlan.exercises = exerciseCatalog;
+    rebuildCatalog();
     buildSessGrid();
-    renderWorkForm();
+    if (currentSess) renderWorkForm();
   } catch(e) {
     setSyncStatus('err', 'Erro');
     toast('Erro ao salvar: ' + e.message, true);
