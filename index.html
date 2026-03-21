@@ -256,7 +256,10 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
       <div><div class="pab-label">Plano ativo</div><div class="pab-name" id="planBarName">—</div></div>
       <div class="pab-date" id="planBarDate"></div>
     </div>
-    <div class="page-title">Sessão</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:2px">
+      <div class="page-title">Sessão</div>
+      <button onclick="openSessModal()" style="background:none;border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:11px;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-bottom:4px">✏️ Editar sessões</button>
+    </div>
     <div class="page-sub" id="todayLabel"></div>
     <div class="session-grid" id="sessGrid"></div>
     <div id="workForm"></div>
