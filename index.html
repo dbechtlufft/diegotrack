@@ -616,12 +616,9 @@ async function syncAll() {
       const date = parseDate(p, 'Data');
       const session = parseText(p, 'Sessão');
       const planName = parseText(p, 'Plano');
-      const kg = parseNum(p, 'Carga (kg)');
-      const kgText = parseText(p, 'Carga Texto');
-      const reps = parseNum(p, 'Reps');
-      const repsText = parseText(p, 'Reps Texto');
-      const rir = parseNum(p, 'RIR');
-      const rirText = parseText(p, 'RIR Texto');
+      const kgRaw = parseText(p, 'Carga (kg)');
+      const repsRaw = parseText(p, 'Reps');
+      const rirRaw = parseText(p, 'RIR');
       const obsSerie = parseText(p, 'Obs Série');
 
       const key = wid + '|' + date + '|' + session;
@@ -635,7 +632,7 @@ async function syncAll() {
       const wk = wkMap[key];
       let ex = wk.exercises.find(e => e.name === exercicio);
       if (!ex) { ex = { name: exercicio, sets: [] }; wk.exercises.push(ex); }
-      ex.sets.push({ kg: kg ?? 0, kgText, reps: reps ?? 0, repsText, rir, rirText, obs: obsSerie });
+      ex.sets.push({ kg: kgRaw, reps: repsRaw, rir: rirRaw, obs: obsSerie });
     }
     workouts = Object.values(wkMap).sort((a, b) => b.date.localeCompare(a.date));
 
@@ -852,12 +849,9 @@ async function saveWorkout() {
       if (kgVal || rpVal) {
         exerciseSets.push({
           exercise: ex.name,
-          kg: kg !== null ? kg : 0,
-          kgText: isNaN(parseFloat(kgVal)) ? kgVal : '',
-          reps: rp !== null ? rp : 0,
-          repsText: isNaN(parseInt(rpVal)) ? rpVal : '',
-          rir: rir,
-          rirText: (rrVal && isNaN(parseFloat(rrVal))) ? rrVal : '',
+          kgRaw: kgVal,
+          repsRaw: rpVal,
+          rirRaw: rrVal,
           obs: obsVal,
         });
       }
@@ -877,12 +871,9 @@ async function saveWorkout() {
       'Exercício':  prop.text(es.exercise),
       'Sessão':     prop.text(currentSess),
       'Plano':      prop.text(planName),
-      'Carga (kg)': prop.num(es.kg || null),
-      'Carga Texto': prop.text(es.kgText || ''),
-      'Reps':       prop.num(es.reps || null),
-      'Reps Texto': prop.text(es.repsText || ''),
-      'RIR':        prop.num(es.rir),
-      'RIR Texto':  prop.text(es.rirText || ''),
+      'Carga (kg)': prop.text(es.kgRaw || ''),
+      'Reps':       prop.text(es.repsRaw || ''),
+      'RIR':        prop.text(es.rirRaw || ''),
       'Obs Série':  prop.text(es.obs || ''),
       'Data':       prop.date(date),
     })));
@@ -919,7 +910,7 @@ function renderDash() {
     ? workouts.map(w => `<div class="hist-entry">
         <div class="hist-date">${w.dateLabel || w.date}</div>
         <div class="hist-sess">Sessão ${w.session}${sessions[w.session] ? ' — '+sessions[w.session].day : ''}${w.planName ? ' · '+w.planName : ''}</div>
-        ${(w.exercises||[]).map(ex => `<div class="hist-ex">${ex.name}</div><div class="hist-sets">${(ex.sets||[]).map(s => { const kgDisp = s.kgText || (s.kg+'kg'); const rpDisp = s.repsText || (s.reps+'×'); const rirDisp = s.rirText ? ' ('+s.rirText+')' : (s.rir!=null?' (RIR '+s.rir+')':''); const obsDisp = s.obs ? ' 📝'+s.obs : ''; return kgDisp+'×'+rpDisp+rirDisp+obsDisp; }).join(' | ')}</div>`).join('')}
+        ${(w.exercises||[]).map(ex => `<div class="hist-ex">${ex.name}</div><div class="hist-sets">${(ex.sets||[]).map(s => { const kgDisp = s.kg || '-'; const rpDisp = s.reps || '-'; const rirDisp = s.rir ? ' (RIR '+s.rir+')' : ''; const obsDisp = s.obs ? ' 📝'+s.obs : ''; return kgDisp+'×'+rpDisp+rirDisp+obsDisp; }).join(' | ')}</div>`).join('')}
       </div>`).join('')
     : '<div class="empty">Nenhum treino registrado ainda.</div>';
 }
