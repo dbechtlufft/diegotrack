@@ -80,6 +80,10 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .ex-item { background: var(--s2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
 .ex-name { font-size: 12px; font-weight: 600; margin-bottom: 10px; line-height: 1.35; }
 .set-labels { display: grid; grid-template-columns: 22px 1fr 1fr 1fr 28px; gap: 5px; margin-bottom: 4px; }
+.set-obs { background: var(--s3); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 11px; padding: 5px 7px; width: 100%; margin-top: 3px; resize: none; transition: border-color .15s; }
+.set-obs:focus { outline: none; border-color: var(--accent); }
+.set-obs::placeholder { color: var(--muted2); font-size: 10px; }
+.ex-edit-btn { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 2px 6px; float: right; line-height: 1.4; }
 .set-label { font-size: 8px; color: var(--muted); text-align: center; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
 .set-row { display: grid; grid-template-columns: 22px 1fr 1fr 1fr 28px; gap: 5px; align-items: center; margin-bottom: 5px; }
 .set-num { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); text-align: center; font-weight: 600; }
@@ -560,8 +564,12 @@ async function syncAll() {
       const session = parseText(p, 'Sessão');
       const planName = parseText(p, 'Plano');
       const kg = parseNum(p, 'Carga (kg)');
+      const kgText = parseText(p, 'Carga Texto');
       const reps = parseNum(p, 'Reps');
+      const repsText = parseText(p, 'Reps Texto');
       const rir = parseNum(p, 'RIR');
+      const rirText = parseText(p, 'RIR Texto');
+      const obsSerie = parseText(p, 'Obs Série');
 
       const key = wid + '|' + date + '|' + session;
       if (!wkMap[key]) {
@@ -574,7 +582,7 @@ async function syncAll() {
       const wk = wkMap[key];
       let ex = wk.exercises.find(e => e.name === exercicio);
       if (!ex) { ex = { name: exercicio, sets: [] }; wk.exercises.push(ex); }
-      ex.sets.push({ kg: kg ?? 0, reps: reps ?? 0, rir: rir });
+      ex.sets.push({ kg: kg ?? 0, kgText, reps: reps ?? 0, repsText, rir, rirText, obs: obsSerie });
     }
     workouts = Object.values(wkMap).sort((a, b) => b.date.localeCompare(a.date));
 
@@ -684,10 +692,11 @@ function renderWorkForm() {
       <div class="chip chip-green">HOJE</div>
     </div>`;
   s.exercises.forEach((ex, ei) => {
-    h += `<div class="ex-item"><div class="ex-name">${ex.name}</div>
+    h += `<div class="ex-item">
+      <div class="ex-name">${ex.name} <button class="ex-edit-btn" onclick="editExName(${ei}, this)" title="Editar exercício">✏️</button></div>
       <div class="set-labels">
-        <div class="set-label"></div><div class="set-label">kg</div>
-        <div class="set-label">Reps</div><div class="set-label">RIR</div><div></div>
+        <div class="set-label"></div><div class="set-label">kg/txt</div>
+        <div class="set-label">Reps/txt</div><div class="set-label">RIR/txt</div><div></div>
       </div>
       <div id="sets${ei}">`;
     for (let i = 0; i < (ex.sets || 3); i++) h += makeSetRow(ei, i, i === (ex.sets || 3) - 1);
@@ -700,20 +709,27 @@ function renderWorkForm() {
 function makeSetRow(ei, si, isTop) {
   const lbl = isTop ? '★' : (si + 1);
   const col = isTop ? 'var(--accent)' : '';
-  return `<div class="set-row" id="sr${ei}_${si}" data-topset="${isTop ? '1' : '0'}">
-    <div class="set-num" style="color:${col};cursor:pointer;user-select:none" title="Definir como top set" onclick="setTopSet(${ei},this.closest('.set-row'))">${lbl}</div>
-    <input class="set-input" type="number" step="0.5" placeholder="kg" id="kg${ei}_${si}">
-    <input class="set-input" type="number" placeholder="reps" id="rp${ei}_${si}">
-    <input class="set-input" type="number" placeholder="0-3" id="rr${ei}_${si}">
-    <button class="set-del" onclick="this.closest('.set-row').remove()">×</button>
+  return `<div class="set-row-wrap" id="srw${ei}_${si}">
+    <div class="set-row" id="sr${ei}_${si}" data-topset="${isTop ? '1' : '0'}">
+      <div class="set-num" style="color:${col};cursor:pointer;user-select:none" title="Definir como top set" onclick="setTopSet(${ei},this.closest('.set-row'))">${lbl}</div>
+      <input class="set-input" type="text" inputmode="decimal" placeholder="kg" id="kg${ei}_${si}">
+      <input class="set-input" type="text" inputmode="decimal" placeholder="reps" id="rp${ei}_${si}">
+      <input class="set-input" type="text" inputmode="decimal" placeholder="0-3" id="rr${ei}_${si}">
+      <button class="set-del" onclick="this.closest('.set-row-wrap').remove()">×</button>
+    </div>
+    <textarea class="set-obs" id="obs${ei}_${si}" placeholder="Obs da série (opcional)..." rows="1" oninput="autoResize(this)"></textarea>
   </div>`;
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
 }
 
 function setTopSet(ei, clickedRow) {
   const container = document.getElementById('sets' + ei);
   const rows = container.querySelectorAll('.set-row');
-  let rowIndex = 0;
-  rows.forEach((row, i) => {
+  rows.forEach(row => {
     const isTop = row === clickedRow;
     row.dataset.topset = isTop ? '1' : '0';
     const numEl = row.querySelector('.set-num');
@@ -721,12 +737,9 @@ function setTopSet(ei, clickedRow) {
       numEl.textContent = '★';
       numEl.style.color = 'var(--accent)';
     } else {
-      rowIndex++;
-      numEl.textContent = rowIndex;
       numEl.style.color = '';
     }
   });
-  // Fix numbering for rows before the top set
   let beforeCount = 0;
   rows.forEach(row => {
     if (row.dataset.topset !== '1') {
@@ -736,9 +749,23 @@ function setTopSet(ei, clickedRow) {
   });
 }
 
+function editExName(ei, btn) {
+  const sessions = getActiveSessions();
+  const s = sessions[currentSess];
+  const ex = s.exercises[ei];
+  const exNameEl = btn.closest('.ex-name');
+  const currentName = ex.name;
+  const newName = prompt('Nome do exercício:', currentName);
+  if (newName && newName.trim() && newName.trim() !== currentName) {
+    ex.name = newName.trim();
+    exNameEl.childNodes[0].textContent = newName.trim() + ' ';
+    toast('Exercício renomeado ✓');
+  }
+}
+
 function addSet(ei) {
   const c = document.getElementById('sets' + ei);
-  c.insertAdjacentHTML('beforeend', makeSetRow(ei, c.querySelectorAll('.set-row').length, false));
+  c.insertAdjacentHTML('beforeend', makeSetRow(ei, c.querySelectorAll('.set-row-wrap').length, false));
 }
 
 async function saveWorkout() {
@@ -755,11 +782,27 @@ async function saveWorkout() {
   const exerciseSets = [];
   s.exercises.forEach((ex, ei) => {
     const c = document.getElementById('sets' + ei); if (!c) return;
-    c.querySelectorAll('.set-row').forEach((_, si) => {
-      const kg = parseFloat(document.getElementById(`kg${ei}_${si}`)?.value) || null;
-      const rp = parseInt(document.getElementById(`rp${ei}_${si}`)?.value) || null;
-      const rr = document.getElementById(`rr${ei}_${si}`)?.value || '';
-      if (kg || rp) exerciseSets.push({ exercise: ex.name, kg: kg || 0, reps: rp || 0, rir: rr !== '' ? parseFloat(rr) : null });
+    c.querySelectorAll('.set-row').forEach((row, si) => {
+      const kgVal = document.getElementById(`kg${ei}_${si}`)?.value?.trim() || '';
+      const rpVal = document.getElementById(`rp${ei}_${si}`)?.value?.trim() || '';
+      const rrVal = document.getElementById(`rr${ei}_${si}`)?.value?.trim() || '';
+      const obsVal = document.getElementById(`obs${ei}_${si}`)?.value?.trim() || '';
+      // Aceitar tanto número quanto texto livre
+      const kg = parseFloat(kgVal) || (kgVal ? null : null);
+      const rp = parseInt(rpVal) || (rpVal ? null : null);
+      const rir = rrVal !== '' ? (parseFloat(rrVal) || null) : null;
+      if (kgVal || rpVal) {
+        exerciseSets.push({
+          exercise: ex.name,
+          kg: kg !== null ? kg : 0,
+          kgText: isNaN(parseFloat(kgVal)) ? kgVal : '',
+          reps: rp !== null ? rp : 0,
+          repsText: isNaN(parseInt(rpVal)) ? rpVal : '',
+          rir: rir,
+          rirText: (rrVal && isNaN(parseFloat(rrVal))) ? rrVal : '',
+          obs: obsVal,
+        });
+      }
     });
   });
 
@@ -776,9 +819,13 @@ async function saveWorkout() {
       'Exercício':  prop.text(es.exercise),
       'Sessão':     prop.text(currentSess),
       'Plano':      prop.text(planName),
-      'Carga (kg)': prop.num(es.kg),
-      'Reps':       prop.num(es.reps),
+      'Carga (kg)': prop.num(es.kg || null),
+      'Carga Texto': prop.text(es.kgText || ''),
+      'Reps':       prop.num(es.reps || null),
+      'Reps Texto': prop.text(es.repsText || ''),
       'RIR':        prop.num(es.rir),
+      'RIR Texto':  prop.text(es.rirText || ''),
+      'Obs Série':  prop.text(es.obs || ''),
       'Data':       prop.date(date),
     })));
     setSyncStatus('ok', 'Salvo');
@@ -814,7 +861,7 @@ function renderDash() {
     ? workouts.map(w => `<div class="hist-entry">
         <div class="hist-date">${w.dateLabel || w.date}</div>
         <div class="hist-sess">Sessão ${w.session}${sessions[w.session] ? ' — '+sessions[w.session].day : ''}${w.planName ? ' · '+w.planName : ''}</div>
-        ${(w.exercises||[]).map(ex => `<div class="hist-ex">${ex.name}</div><div class="hist-sets">${(ex.sets||[]).map(s => `${s.kg}kg×${s.reps}${s.rir!=null?' (RIR '+s.rir+')':''}`).join(' | ')}</div>`).join('')}
+        ${(w.exercises||[]).map(ex => `<div class="hist-ex">${ex.name}</div><div class="hist-sets">${(ex.sets||[]).map(s => { const kgDisp = s.kgText || (s.kg+'kg'); const rpDisp = s.repsText || (s.reps+'×'); const rirDisp = s.rirText ? ' ('+s.rirText+')' : (s.rir!=null?' (RIR '+s.rir+')':''); const obsDisp = s.obs ? ' 📝'+s.obs : ''; return kgDisp+'×'+rpDisp+rirDisp+obsDisp; }).join(' | ')}</div>`).join('')}
       </div>`).join('')
     : '<div class="empty">Nenhum treino registrado ainda.</div>';
 }
@@ -1063,3 +1110,4 @@ async function confirmPlan() {
 </script>
 </body>
 </html>
+
