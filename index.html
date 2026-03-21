@@ -961,6 +961,105 @@ function renderDiet() {
 // ══════════════════════════════════════════
 //  CATÁLOGO DE EXERCÍCIOS
 // ══════════════════════════════════════════
+// ─── Catálogo base por grupo muscular ────────────────────────
+const MUSCLE_CATALOG = {
+  'Peito': [
+    'Supino Reto com Halter','Supino Inclinado com Halter','Supino Declinado com Halter',
+    'Supino Reto com Barra','Supino Inclinado com Barra','Supino Declinado com Barra',
+    'Supino Inclinado Máquina Hammer','Crucifixo Máquina','Crucifixo com Halter',
+    'Crossover Polia Alta','Crossover Polia Baixa','Pullover Máquina','Pullover com Halter',
+    'Flexão de Braço','Peck Deck','Fly Máquina',
+  ],
+  'Costas': [
+    'Puxada Frontal Aberta Pegada Pronada','Puxada Frontal Aberta Pegada Supinada',
+    'Puxada Supinada Unilateral Hammer','Puxada Neutra','Puxada Alta Polia',
+    'Remada Baixa Máquina Pegada Neutra Aberta','Remada Máquina Hammer Pegada Supinada',
+    'Remada Unilateral com Halter','Remada Cavalinho','Remada Curvada com Barra',
+    'Remada Alta Polia','Remada Serrote','Levantamento Terra',
+    'Crucifixo Invertido Máquina','Face Pull','Pulldown',
+  ],
+  'Ombro': [
+    'Desenvolvimento com Halter Pegada Fechada','Desenvolvimento com Halter','Desenvolvimento com Barra',
+    'Desenvolvimento Arnold','Desenvolvimento Máquina',
+    'Elevação Lateral com Halter','Elevação Lateral na Polia','Elevação Lateral Máquina',
+    'Elevação Frontal com Halter','Elevação Frontal com Barra','Elevação Frontal na Polia',
+    'Encolhimento com Halter','Encolhimento com Barra','Manguito Rotador',
+  ],
+  'Bíceps': [
+    'Rosca Direta na Polia','Rosca Direta com Barra','Rosca Direta com Halter',
+    'Rosca Martelo com Halter','Rosca Concentrada','Rosca Scott Máquina',
+    'Rosca Scott com Barra','Rosca Scott com Halter','Rosca Inclinada com Halter',
+    'Rosca 21','Rosca Inversa','Rosca Cabo',
+  ],
+  'Tríceps': [
+    'Tríceps Pulley Barra V','Tríceps Pulley Corda','Tríceps Pulley Barra Reta',
+    'Tríceps Francês Corda','Tríceps Francês com Halter','Tríceps Francês Máquina Pórtico',
+    'Tríceps Coice com Halter','Tríceps Mergulho','Tríceps Testa com Barra',
+    'Tríceps Unilateral Polia','Supino Fechado',
+  ],
+  'Quadríceps': [
+    'Agachamento Hack','Agachamento Livre','Agachamento Sumô','Agachamento Smith',
+    'Leg Press Cabo','Leg Press 45°','Leg Press Horizontal',
+    'Cadeira Extensora','Afundo com Halter','Afundo no Smith','Passada',
+    'Sissy Squat','Bulgarian Split Squat',
+  ],
+  'Posterior / Glúteo': [
+    'Cama Flexora','Cadeira Flexora','Mesa Flexora',
+    'RDL com Halter','RDL com Barra','Stiff','Good Morning',
+    'Cadeira Abdutora','Cadeira Adutora','Abdução no Cabo','Glúteo 4 Apoios',
+    'Hip Thrust','Elevação Pélvica','Avanço Glúteo',
+  ],
+  'Panturrilha': [
+    'Panturrilha Máquina em Pé','Panturrilha Máquina Sentado',
+    'Panturrilha no Leg Press','Panturrilha com Halter','Panturrilha Burro',
+  ],
+  'Abdominal / Core': [
+    'Abdominal Máquina','Abdominal Supra na Polia','Abdominal Lombar Máquina',
+    'Crunch na Polia','Crunch no Solo','Prancha','Elevação de Pernas',
+    'Rotação de Tronco','Oblíquo na Polia','Abdominal Infra','Ab Roda',
+  ],
+};
+
+// Todos os exercícios do catálogo base em lista plana (para lookup)
+const BASE_EXERCISE_LIST = Object.values(MUSCLE_CATALOG).flat();
+
+function getMuscleGroup(name) {
+  for (const [group, exercises] of Object.entries(MUSCLE_CATALOG)) {
+    if (exercises.some(e => normalizeEx(e) === normalizeEx(name))) return group;
+  }
+  return 'Outros';
+}
+
+function buildCatalogOpts(catalog) {
+  // Agrupa por músculo
+  const groups = {};
+  const allKnown = [...new Set([...BASE_EXERCISE_LIST, ...catalog])];
+  allKnown.forEach(ex => {
+    const g = getMuscleGroup(ex);
+    if (!groups[g]) groups[g] = [];
+    if (!groups[g].includes(ex)) groups[g].push(ex);
+  });
+  // Exercícios do usuário não reconhecidos → Outros
+  catalog.forEach(ex => {
+    if (!BASE_EXERCISE_LIST.some(b => normalizeEx(b) === normalizeEx(ex))) {
+      if (!groups['Outros']) groups['Outros'] = [];
+      if (!groups['Outros'].includes(ex)) groups['Outros'].push(ex);
+    }
+  });
+
+  const order = ['Peito','Costas','Ombro','Bíceps','Tríceps','Quadríceps','Posterior / Glúteo','Panturrilha','Abdominal / Core','Outros'];
+  let opts = '<option value="">— Selecionar —</option>';
+  order.forEach(g => {
+    if (!groups[g]?.length) return;
+    opts += `<optgroup label="${g}">`;
+    groups[g].sort((a,b) => a.localeCompare(b)).forEach(ex => {
+      opts += `<option value="${ex.replace(/"/g,'&quot;')}">${ex}</option>`;
+    });
+    opts += '</optgroup>';
+  });
+  return opts;
+}
+
 function normalizeEx(name) {
   return name.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
@@ -987,8 +1086,8 @@ function findDuplicate(name, catalog) {
 }
 
 function rebuildCatalog() {
-  // Combina exercícios do plano ativo + todos os treinos históricos
-  const set = new Set();
+  // Combina catálogo base + plano ativo + histórico
+  const set = new Set(BASE_EXERCISE_LIST);
   if (activePlan?.exercises?.length) activePlan.exercises.forEach(e => set.add(e));
   if (activePlan?.sessions) {
     Object.values(activePlan.sessions).forEach(s =>
@@ -1049,8 +1148,7 @@ function renderSessModalBody() {
   const sessions = getActiveSessions();
   const s = sessions[editingSessKey];
   const exercises = s.exercises || [];
-  const catalogOpts = exerciseCatalog.map(e =>
-    `<option value="${e.replace(/"/g,'&quot;')}">${e}</option>`).join('');
+  const catalogOpts = buildCatalogOpts(exerciseCatalog);
 
   let h = `<div class="catalog-title">Exercícios da Sessão ${editingSessKey}</div>`;
   exercises.forEach((ex, i) => {
@@ -1066,7 +1164,7 @@ function renderSessModalBody() {
 
   h += `<div class="new-ex-row">
     <input class="new-ex-input" id="newExInput" list="exCatalogList" placeholder="Adicionar exercício...">
-    <datalist id="exCatalogList">${catalogOpts}</datalist>
+    <datalist id="exCatalogList">${exerciseCatalog.map(e => `<option value="${e}">`).join('')}</datalist>
     <button class="new-ex-add" onclick="addExToModal()">+ Add</button>
   </div>`;
 
