@@ -111,6 +111,37 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .hist-sess { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
 .hist-ex { font-size: 10px; color: var(--muted); margin-top: 5px; margin-bottom: 1px; }
 .hist-sets { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text); }
+/* PROGRESSO — seletor de exercício */
+.ex-selector-wrap { position: relative; margin-bottom: 14px; }
+.ex-search-input { width: 100%; background: var(--s1); border: 1px solid var(--border2); border-radius: var(--r); color: var(--text); font-size: 13px; padding: 10px 12px; box-sizing: border-box; }
+.ex-search-input:focus { outline: none; border-color: var(--accent); }
+.ex-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--s2); border: 1px solid var(--border2); border-radius: var(--r); z-index: 50; max-height: 200px; overflow-y: auto; display: none; }
+.ex-dropdown.open { display: block; }
+.ex-dd-item { padding: 9px 12px; font-size: 12px; cursor: pointer; border-bottom: 1px solid var(--border); }
+.ex-dd-item:last-child { border-bottom: none; }
+.ex-dd-item:hover, .ex-dd-item.selected { background: var(--s3); color: var(--accent); }
+/* Painel detalhe do exercício */
+.ex-detail { background: var(--s1); border: 1px solid var(--border); border-radius: var(--r); padding: 14px; margin-bottom: 14px; }
+.ex-detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.ex-detail-name { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1px; color: var(--text); line-height: 1.1; flex: 1; }
+.ex-pr-badge { background: var(--accent); color: #000; font-family: 'Bebas Neue', sans-serif; font-size: 14px; padding: 3px 8px; border-radius: 4px; white-space: nowrap; margin-left: 8px; }
+.ex-hist-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+.ex-hist-row:last-child { border-bottom: none; }
+.ex-hist-date { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); min-width: 72px; }
+.ex-hist-sets-txt { color: var(--text); flex: 1; }
+/* Resumo de PRs colapsável */
+.pr-summary-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; padding: 4px 0 10px; }
+.pr-summary-toggle { font-size: 11px; color: var(--muted); transition: transform .2s; }
+.pr-summary-toggle.open { transform: rotate(180deg); }
+.pr-summary-body { display: none; }
+.pr-summary-body.open { display: block; }
+/* Draft banner */
+.draft-banner { background: var(--s2); border: 1px solid var(--accent); border-radius: var(--r); padding: 10px 12px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; display: none; }
+.draft-banner.visible { display: flex; }
+.draft-banner-txt { flex: 1; font-size: 11px; color: var(--text); line-height: 1.4; }
+.draft-banner-txt strong { color: var(--accent); }
+.draft-btn-restore { background: var(--accent); color: #000; font-family: 'Bebas Neue', sans-serif; font-size: 12px; padding: 5px 10px; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+.draft-btn-dismiss { background: none; border: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 0 2px; line-height: 1; }
 
 /* DIET */
 .macro-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; padding: 12px; background: var(--s2); border-radius: var(--r); border: 1px solid var(--border); margin-bottom: 12px; }
@@ -262,6 +293,12 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
     </div>
     <div class="page-sub" id="todayLabel"></div>
     <div class="session-grid" id="sessGrid"></div>
+    <!-- Draft banner (auto-save) -->
+    <div class="draft-banner" id="draftBanner">
+      <div class="draft-banner-txt">⚡ <strong>Rascunho encontrado.</strong><br>Você tinha uma sessão não salva.</div>
+      <button class="draft-btn-restore" onclick="restoreDraft()">RESTAURAR</button>
+      <button class="draft-btn-dismiss" onclick="dismissDraft()">✕</button>
+    </div>
     <div id="workForm"></div>
   </div>
 
@@ -270,10 +307,24 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
     <div class="page-title">Progresso</div>
     <div class="page-sub">Histórico e recordes do Notion</div>
     <div class="kpi-row" id="kpiRow"></div>
-    <div class="divider-label">Recordes Pessoais</div>
-    <div id="prList"></div>
-    <div class="divider-label">Histórico</div>
-    <div id="histList"></div>
+
+    <!-- Resumo geral de PRs (colapsável) -->
+    <div class="divider-label pr-summary-header" onclick="togglePrSummary()">
+      Todos os Recordes Pessoais
+      <span class="pr-summary-toggle" id="prToggleIcon">▼</span>
+    </div>
+    <div class="pr-summary-body" id="prSummaryBody">
+      <div id="prList"></div>
+    </div>
+
+    <!-- Seletor de exercício + detalhe -->
+    <div class="divider-label" style="margin-top:14px">Progresso por Exercício</div>
+    <div class="ex-selector-wrap">
+      <input class="ex-search-input" id="exSearchInput" placeholder="Buscar exercício..." autocomplete="off"
+        oninput="filterExDropdown(this.value)" onfocus="openExDropdown()" onblur="setTimeout(closeExDropdown,150)">
+      <div class="ex-dropdown" id="exDropdown"></div>
+    </div>
+    <div id="exDetail"></div>
   </div>
 
   <!-- DIETA -->
@@ -759,6 +810,7 @@ function renderWorkForm() {
   });
   h += `<button class="btn-save" id="btnSave" onclick="saveWorkout()">💾 SALVAR NO NOTION</button></div>`;
   document.getElementById('workForm').innerHTML = h;
+  draftCheck();
 }
 
 function makeSetRow(ei, si, isTop) {
@@ -767,12 +819,12 @@ function makeSetRow(ei, si, isTop) {
   return `<div class="set-row-wrap" id="srw${ei}_${si}">
     <div class="set-row" id="sr${ei}_${si}" data-topset="${isTop ? '1' : '0'}">
       <div class="set-num" style="color:${col};cursor:pointer;user-select:none" title="Definir como top set" onclick="setTopSet(${ei},this.closest('.set-row'))">${lbl}</div>
-      <input class="set-input" type="text" inputmode="decimal" placeholder="kg" id="kg${ei}_${si}">
-      <input class="set-input" type="text" inputmode="decimal" placeholder="reps" id="rp${ei}_${si}">
-      <input class="set-input" type="text" inputmode="decimal" placeholder="0-3" id="rr${ei}_${si}">
+      <input class="set-input" type="text" inputmode="decimal" placeholder="kg" id="kg${ei}_${si}" oninput="draftSave()">
+      <input class="set-input" type="text" inputmode="decimal" placeholder="reps" id="rp${ei}_${si}" oninput="draftSave()">
+      <input class="set-input" type="text" inputmode="decimal" placeholder="0-3" id="rr${ei}_${si}" oninput="draftSave()">
       <button class="set-del" onclick="this.closest('.set-row-wrap').remove()">×</button>
     </div>
-    <textarea class="set-obs" id="obs${ei}_${si}" placeholder="Obs da série (opcional)..." rows="1" oninput="autoResize(this)"></textarea>
+    <textarea class="set-obs" id="obs${ei}_${si}" placeholder="Obs da série (opcional)..." rows="1" oninput="autoResize(this);draftSave()"></textarea>
   </div>`;
 }
 
@@ -878,6 +930,7 @@ async function saveWorkout() {
       'Data':       prop.date(date),
     })));
     setSyncStatus('ok', 'Salvo');
+    draftClear();
     toast(`Treino salvo! ${exerciseSets.length} séries 💪`);
     await syncAll();
   } catch(e) {
@@ -888,31 +941,213 @@ async function saveWorkout() {
 }
 
 // ══════════════════════════════════════════
+//  AUTO-SAVE (draft localStorage)
+// ══════════════════════════════════════════
+const DRAFT_KEY = 'dt_draft_v1';
+
+function draftSave() {
+  if (!currentSess) return;
+  const data = { sess: currentSess, ts: Date.now(), fields: {} };
+  const sessions = getActiveSessions();
+  const s = sessions[currentSess];
+  if (!s) return;
+  s.exercises.forEach((ex, ei) => {
+    const c = document.getElementById('sets' + ei);
+    if (!c) return;
+    c.querySelectorAll('.set-row-wrap').forEach((wrap, si) => {
+      const kg = document.getElementById(`kg${ei}_${si}`)?.value || '';
+      const rp = document.getElementById(`rp${ei}_${si}`)?.value || '';
+      const rr = document.getElementById(`rr${ei}_${si}`)?.value || '';
+      const ob = document.getElementById(`obs${ei}_${si}`)?.value || '';
+      if (kg || rp || rr || ob) data.fields[`${ei}_${si}`] = { kg, rp, rr, ob };
+    });
+  });
+  if (Object.keys(data.fields).length > 0) {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+  } else {
+    localStorage.removeItem(DRAFT_KEY);
+  }
+}
+
+function draftClear() {
+  localStorage.removeItem(DRAFT_KEY);
+  hideDraftBanner();
+}
+
+function draftCheck() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    // Só mostrar se for recente (menos de 24h) e sessão ainda existir
+    const age = Date.now() - (data.ts || 0);
+    if (age > 86400000) { localStorage.removeItem(DRAFT_KEY); return; }
+    const sessions = getActiveSessions();
+    if (!sessions[data.sess]) return;
+    // Mostrar banner
+    const banner = document.getElementById('draftBanner');
+    if (banner) { banner.classList.add('visible'); banner._draftData = data; }
+  } catch(e) { localStorage.removeItem(DRAFT_KEY); }
+}
+
+function restoreDraft() {
+  const banner = document.getElementById('draftBanner');
+  if (!banner || !banner._draftData) return;
+  const data = banner._draftData;
+  // Selecionar a sessão salva
+  currentSess = data.sess;
+  renderWork();
+  // Restaurar os campos após render (next tick)
+  setTimeout(() => {
+    Object.entries(data.fields).forEach(([key, vals]) => {
+      const [ei, si] = key.split('_');
+      const kgEl = document.getElementById(`kg${ei}_${si}`);
+      const rpEl = document.getElementById(`rp${ei}_${si}`);
+      const rrEl = document.getElementById(`rr${ei}_${si}`);
+      const obEl = document.getElementById(`obs${ei}_${si}`);
+      if (kgEl) kgEl.value = vals.kg;
+      if (rpEl) rpEl.value = vals.rp;
+      if (rrEl) rrEl.value = vals.rr;
+      if (obEl) { obEl.value = vals.ob; autoResize(obEl); }
+    });
+    hideDraftBanner();
+    toast('Rascunho restaurado! 💾');
+  }, 100);
+}
+
+function dismissDraft() {
+  draftClear();
+}
+
+function hideDraftBanner() {
+  const banner = document.getElementById('draftBanner');
+  if (banner) banner.classList.remove('visible');
+}
+
+// ══════════════════════════════════════════
 //  DASH
 // ══════════════════════════════════════════
+
+// Calcula PRs: { exercício → melhor carga (string) }
+function calcPRs() {
+  const prs = {};
+  workouts.forEach(w => w.exercises?.forEach(ex => ex.sets?.forEach(s => {
+    const val = s.kg;
+    if (!val) return;
+    const num = parseFloat(val);
+    if (!prs[ex.name]) { prs[ex.name] = val; return; }
+    const cur = parseFloat(prs[ex.name]);
+    if (!isNaN(num) && !isNaN(cur) && num > cur) prs[ex.name] = val;
+    else if (isNaN(cur)) prs[ex.name] = val; // preferir numérico
+  })));
+  return prs;
+}
+
+// Retorna lista de exercícios únicos ordenados
+function allExercises() {
+  const set = new Set();
+  workouts.forEach(w => w.exercises?.forEach(ex => set.add(ex.name)));
+  return [...set].sort();
+}
+
+// Estado do seletor
+let _selectedEx = null;
+let _exDropOpen = false;
+
 function renderDash() {
   const week = workouts.filter(w => (new Date() - new Date(w.date+'T12:00:00')) / 86400000 <= 7).length;
   document.getElementById('kpiRow').innerHTML = `
     <div class="kpi"><div class="kpi-val">${workouts.length}</div><div class="kpi-label">Treinos salvos</div></div>
     <div class="kpi"><div class="kpi-val">${week}</div><div class="kpi-label">Essa semana</div></div>`;
 
-  const prs = {};
-  workouts.forEach(w => w.exercises?.forEach(ex => ex.sets?.forEach(s => {
-    if (s.kg && (!prs[ex.name] || s.kg > prs[ex.name])) prs[ex.name] = s.kg;
-  })));
-  const pe = Object.entries(prs).sort((a,b) => b[1]-a[1]);
+  // Resumo PRs (colapsável, fechado por padrão)
+  const prs = calcPRs();
+  const pe = Object.entries(prs).sort((a,b) => {
+    const na = parseFloat(a[1]), nb = parseFloat(b[1]);
+    if (!isNaN(na) && !isNaN(nb)) return nb - na;
+    return a[0].localeCompare(b[0]);
+  });
   document.getElementById('prList').innerHTML = pe.length
-    ? pe.map(([ex,kg]) => `<div class="pr-row"><div class="pr-name">${ex}</div><div class="pr-val">${kg}<span class="pr-unit"> kg</span></div></div>`).join('')
+    ? pe.map(([ex,val]) => `<div class="pr-row"><div class="pr-name">${ex}</div><div class="pr-val">${val}</div></div>`).join('')
     : '<div class="empty">Registre treinos para ver seus recordes.</div>';
 
-  const sessions = getActiveSessions();
-  document.getElementById('histList').innerHTML = workouts.length
-    ? workouts.map(w => `<div class="hist-entry">
-        <div class="hist-date">${w.dateLabel || w.date}</div>
-        <div class="hist-sess">Sessão ${w.session}${sessions[w.session] ? ' — '+sessions[w.session].day : ''}${w.planName ? ' · '+w.planName : ''}</div>
-        ${(w.exercises||[]).map(ex => `<div class="hist-ex">${ex.name}</div><div class="hist-sets">${(ex.sets||[]).map(s => { const kgDisp = s.kg || '-'; const rpDisp = s.reps || '-'; const rirDisp = s.rir ? ' (RIR '+s.rir+')' : ''; const obsDisp = s.obs ? ' 📝'+s.obs : ''; return kgDisp+'×'+rpDisp+rirDisp+obsDisp; }).join(' | ')}</div>`).join('')}
-      </div>`).join('')
-    : '<div class="empty">Nenhum treino registrado ainda.</div>';
+  // Seletor de exercício — popular dropdown
+  renderExDropdown('');
+  if (_selectedEx) renderExDetail(_selectedEx);
+}
+
+function togglePrSummary() {
+  const body = document.getElementById('prSummaryBody');
+  const icon = document.getElementById('prToggleIcon');
+  body.classList.toggle('open');
+  icon.classList.toggle('open');
+}
+
+function renderExDropdown(filter) {
+  const exs = allExercises().filter(e => e.toLowerCase().includes(filter.toLowerCase()));
+  const dd = document.getElementById('exDropdown');
+  dd.innerHTML = exs.length
+    ? exs.map(e => `<div class="ex-dd-item${e===_selectedEx?' selected':''}" onmousedown="selectEx('${e.replace(/'/g,"\\'")}')">${e}</div>`).join('')
+    : '<div class="ex-dd-item" style="color:var(--muted)">Nenhum exercício encontrado</div>';
+}
+
+function filterExDropdown(val) {
+  renderExDropdown(val);
+  openExDropdown();
+}
+
+function openExDropdown() {
+  document.getElementById('exDropdown').classList.add('open');
+  _exDropOpen = true;
+}
+
+function closeExDropdown() {
+  document.getElementById('exDropdown').classList.remove('open');
+  _exDropOpen = false;
+}
+
+function selectEx(name) {
+  _selectedEx = name;
+  document.getElementById('exSearchInput').value = name;
+  closeExDropdown();
+  renderExDetail(name);
+}
+
+function renderExDetail(name) {
+  const prs = calcPRs();
+  const pr = prs[name] || '—';
+
+  // Histórico deste exercício: todas as sessões que o contêm, do mais recente ao mais antigo
+  const entries = [];
+  workouts.forEach(w => {
+    const ex = (w.exercises||[]).find(e => e.name === name);
+    if (ex) entries.push({ date: w.dateLabel || w.date, sets: ex.sets || [] });
+  });
+  // Já vêm ordenados (workouts é desc por data)
+
+  const setsHtml = entries.length
+    ? entries.map(e => {
+        const setsStr = e.sets.map(s => {
+          const kg = s.kg || '?'; const rp = s.reps || '?';
+          const rir = s.rir ? ` RIR${s.rir}` : '';
+          const obs = s.obs ? ` 📝${s.obs}` : '';
+          return `${kg}×${rp}${rir}${obs}`;
+        }).join(' | ');
+        return `<div class="ex-hist-row">
+          <div class="ex-hist-date">${e.date}</div>
+          <div class="ex-hist-sets-txt">${setsStr}</div>
+        </div>`;
+      }).join('')
+    : '<div class="empty" style="padding:10px 0">Nenhum registro encontrado.</div>';
+
+  document.getElementById('exDetail').innerHTML = `
+    <div class="ex-detail">
+      <div class="ex-detail-header">
+        <div class="ex-detail-name">${name}</div>
+        <div class="ex-pr-badge">PR: ${pr}</div>
+      </div>
+      ${setsHtml}
+    </div>`;
 }
 
 // ══════════════════════════════════════════
