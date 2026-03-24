@@ -995,8 +995,7 @@ function restoreDraft() {
   if (!banner || !banner._draftData) return;
   const data = banner._draftData;
   // Selecionar a sessão salva
-  currentSess = data.sess;
-  renderWork();
+  selectSess(data.sess);
   // Restaurar os campos após render (next tick)
   setTimeout(() => {
     Object.entries(data.fields).forEach(([key, vals]) => {
