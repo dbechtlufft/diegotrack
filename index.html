@@ -379,7 +379,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
     <div class="page-title">Novo Plano</div>
     <div class="page-sub">PDFs do mês → Claude extrai → salva no Notion</div>
     <div class="drop-zone" id="dropZone">
-      <input type="file" id="fileIn" accept=".pdf" multiple onchange="onFiles(event)">
+      <input type="file" id="fileIn" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" multiple onchange="onFiles(event)">
       <div class="dz-icon">📄</div>
       <div class="dz-title">Soltar PDFs aqui</div>
       <div class="dz-sub">Treino e/ou dieta do mês · Toque para selecionar</div>
@@ -1573,13 +1573,29 @@ async function deleteErgo(pageId) {
 }
 
 // ══════════════════════════════════════════
-//  PDF IMPORT (usa Claude API com header CORS)
+//  FILE IMPORT — PDF, Word, Excel, PPT, TXT, CSV
 // ══════════════════════════════════════════
+const ACCEPTED_EXTS = ['.pdf','.doc','.docx','.xls','.xlsx','.ppt','.pptx','.txt','.csv'];
+
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  if (ext === 'pdf') return '📄';
+  if (['doc','docx'].includes(ext)) return '📝';
+  if (['xls','xlsx'].includes(ext)) return '📊';
+  if (['ppt','pptx'].includes(ext)) return '📑';
+  return '📃';
+}
+
+function isAccepted(file) {
+  const ext = '.' + file.name.split('.').pop().toLowerCase();
+  return ACCEPTED_EXTS.includes(ext);
+}
+
 const dz = document.getElementById('dropZone');
 dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
 dz.addEventListener('dragleave', () => dz.classList.remove('over'));
-dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); addFiles(Array.from(e.dataTransfer.files).filter(f => f.type==='application/pdf')); });
-function onFiles(e) { addFiles(Array.from(e.target.files)); e.target.value = ''; }
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); addFiles(Array.from(e.dataTransfer.files).filter(isAccepted)); });
+function onFiles(e) { addFiles(Array.from(e.target.files).filter(isAccepted)); e.target.value = ''; }
 function addFiles(files) { files.forEach(f => { if (!selFiles.find(x => x.name===f.name)) selFiles.push(f); }); renderFileList(); }
 function removeFile(name) { selFiles = selFiles.filter(f => f.name !== name); renderFileList(); }
 
@@ -1591,7 +1607,7 @@ function renderFileList() {
   if (!selFiles.length) { el.innerHTML = ''; document.getElementById('btnExtract').style.display = 'none'; return; }
   el.innerHTML = selFiles.map(f => `
     <div class="file-chip">
-      <span style="font-size:16px">📄</span>
+      <span style="font-size:16px">${fileIcon(f.name)}</span>
       <span class="fc-name">${f.name}</span>
       <button class="fc-del" onclick="removeFile('${f.name}')">×</button>
     </div>`).join('');
@@ -1607,6 +1623,101 @@ async function fileToB64(file) {
   });
 }
 
+async function fileToArrayBuffer(file) {
+  return new Promise((res,rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsArrayBuffer(file);
+  });
+}
+
+async function fileToText(file) {
+  return new Promise((res,rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsText(file, 'utf-8');
+  });
+}
+
+const _loadedScripts = {};
+function loadScript(url) {
+  if (_loadedScripts[url]) return _loadedScripts[url];
+  _loadedScripts[url] = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  return _loadedScripts[url];
+}
+
+async function extractDocx(file) {
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
+  const ab = await fileToArrayBuffer(file);
+  const result = await mammoth.extractRawText({ arrayBuffer: ab });
+  return result.value;
+}
+
+async function extractXlsx(file) {
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+  const ab = await fileToArrayBuffer(file);
+  const wb = XLSX.read(ab, { type: 'array' });
+  return wb.SheetNames.map(name => {
+    const ws = wb.Sheets[name];
+    return '=== Aba: ' + name + ' ===
+' + XLSX.utils.sheet_to_csv(ws);
+  }).join('
+
+');
+}
+
+async function extractPptx(file) {
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+  const ab = await fileToArrayBuffer(file);
+  const zip = await JSZip.loadAsync(ab);
+  const slideFiles = Object.keys(zip.files)
+    .filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+    .sort((a,b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
+  const texts = [];
+  for (const sf of slideFiles) {
+    const xml = await zip.files[sf].async('string');
+    const matches = [...xml.matchAll(/<a:t[^>]*>([^<]+)<\/a:t>/g)];
+    const slideText = matches.map(m => m[1]).join(' ').trim();
+    if (slideText) texts.push('--- Slide ' + (slideFiles.indexOf(sf)+1) + ' ---
+' + slideText);
+  }
+  return texts.join('
+
+');
+}
+
+async function fileToBlock(file, idx, total, progressCb) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  progressCb(idx, total, 'Lendo ' + file.name + '...');
+
+  if (ext === 'pdf') {
+    const b64 = await fileToB64(file);
+    return { type:'document', source:{ type:'base64', media_type:'application/pdf', data:b64 } };
+  }
+
+  let text = '';
+  if (['doc','docx'].includes(ext)) {
+    text = await extractDocx(file);
+  } else if (['xls','xlsx'].includes(ext)) {
+    text = await extractXlsx(file);
+  } else if (['ppt','pptx'].includes(ext)) {
+    text = await extractPptx(file);
+  } else {
+    text = await fileToText(file);
+  }
+
+  return { type:'text', text:'=== ARQUIVO: ' + file.name + ' ===
+' + text };
+}
+
 function setProgress(pct, msg) {
   document.getElementById('progFill').style.width = pct + '%';
   document.getElementById('progMsg').textContent = msg;
@@ -1615,28 +1726,29 @@ function setProgress(pct, msg) {
 async function extractPDFs() {
   if (!selFiles.length) return;
   if (!CLAUDE_KEY) {
-    toast('Adicione uma Claude API key nas configurações para importar PDFs!', true);
+    toast('Adicione uma Claude API key nas configurações para importar arquivos!', true);
     return;
   }
   document.getElementById('btnExtract').style.display = 'none';
   document.getElementById('progBox').style.display = 'block';
-  setProgress(10, 'Convertendo PDFs...');
+  setProgress(5, 'Preparando arquivos...');
 
   try {
     const blocks = [];
     for (let i = 0; i < selFiles.length; i++) {
-      setProgress(10 + 20*(i/selFiles.length), `Lendo ${selFiles[i].name}...`);
-      const b64 = await fileToB64(selFiles[i]);
-      blocks.push({ type:'document', source:{ type:'base64', media_type:'application/pdf', data:b64 } });
+      const block = await fileToBlock(
+        selFiles[i], i, selFiles.length,
+        (idx, total, msg) => setProgress(5 + 55*(idx/total), msg)
+      );
+      blocks.push(block);
     }
+
     const catalogHint = exerciseCatalog.length
       ? `\n\nCATÁLOGO ATUAL DE EXERCÍCIOS (use estes nomes EXATOS se forem os mesmos exercícios, evite variações de escrita):\n${exerciseCatalog.join(', ')}`
       : '';
-    blocks.push({ type:'text', text:`Extraia as informações desses PDFs de planejamento esportivo. Retorne APENAS JSON válido:
-{"planName":"Março 2026","sessions":{"A":{"label":"A","day":"Segunda","exercises":[{"name":"Exercício","sets":3}]}},"diet":{"meals":[{"name":"Refeição","cals":500,"prot":30,"carb":50,"fat":15,"foods":[{"name":"Alimento","qty":"200g"}],"obs":""}],"totals":{"prot":190,"carb":220,"fat":84,"kcal":2400}}}
-Se não houver sessões: "sessions":{}. Se não houver dieta: "diet":null. Retorne SOMENTE o JSON.${catalogHint}` });
+    blocks.push({ type:'text', text:`Extraia as informações desses arquivos de planejamento esportivo. Retorne APENAS JSON válido:\n{"planName":"Março 2026","sessions":{"A":{"label":"A","day":"Segunda","exercises":[{"name":"Exercício","sets":3}]}},"diet":{"meals":[{"name":"Refeição","cals":500,"prot":30,"carb":50,"fat":15,"foods":[{"name":"Alimento","qty":"200g"}],"obs":""}],"totals":{"prot":190,"carb":220,"fat":84,"kcal":2400}}}\nSe não houver sessões: "sessions":{}. Se não houver dieta: "diet":null. Retorne SOMENTE o JSON.${catalogHint}` });
 
-    setProgress(40, 'Enviando para Claude AI...');
+    setProgress(65, 'Enviando para Claude AI...');
     const resp = await fetch('https://diegotrack-proxy.diegobechtlufft-db.workers.dev/anthropic/v1/messages', {
       method: 'POST',
       headers: {
@@ -1646,7 +1758,7 @@ Se não houver sessões: "sessions":{}. Se não houver dieta: "diet":null. Retor
       },
       body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:4000, messages:[{ role:'user', content:blocks }] })
     });
-    setProgress(80, 'Processando...');
+    setProgress(90, 'Processando...');
     if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || resp.status); }
     const data = await resp.json();
     const raw = data.content.filter(b => b.type==='text').map(b => b.text).join('');
@@ -1659,7 +1771,6 @@ Se não houver sessões: "sessions":{}. Se não houver dieta: "diet":null. Retor
     toast('Erro: ' + e.message, true);
   }
 }
-
 function showExtractPreview(data) {
   const el = document.getElementById('previewBox');
   el.style.display = 'block';
